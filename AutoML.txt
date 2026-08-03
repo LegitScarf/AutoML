@@ -1,0 +1,59 @@
+what if i build a system named AutoML that can take in user datasets and info and can create ML and DL models on the dataset and handover the model in the .pkl file(or any other files(s)) which the user can directly attach to his or her application. The entire code generation. execution, error handling etc would be done by my application which will make sure that the user gets high quality models which the user can just plug in and relax. How does this sound?
+
+Imagine the workflow.
+
+Instead of a user doing this:
+Load CSV
+↓
+Analyze data
+↓
+Handle missing values
+↓
+Encode categorical variables
+↓
+Scale features
+↓
+Feature engineering
+↓
+Choose algorithm
+↓
+Train
+↓
+Hyperparameter tuning
+↓
+Cross validation
+↓
+Evaluate
+↓
+Save model
+↓
+Save preprocessing pipeline
+↓
+Write inference code
+↓
+Debug everything
+
+
+your system would do:
+Upload dataset
+↓
+Describe prediction goal
+↓
+AI understands the problem
+↓
+Entire ML pipeline is generated
+↓
+Code is executed
+↓
+Errors fixed automatically
+↓
+Best model selected
+↓
+Pipeline serialized
+↓
+User downloads:
+    model.pkl
+    preprocessor.pkl (or combined pipeline)
+    requirements.txt
+    inference.py
+    training_report.pdf
