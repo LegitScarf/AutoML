@@ -2,6 +2,19 @@ import sys
 import types
 import os
 
+# Monkey patch gradio_client schema parsing bug (TypeError: argument of type 'bool' is not iterable)
+try:
+    import gradio_client.utils
+    orig_get_type = gradio_client.utils.get_type
+    def patched_get_type(schema):
+        if isinstance(schema, bool):
+            return "boolean"
+        return orig_get_type(schema)
+    gradio_client.utils.get_type = patched_get_type
+except Exception:
+    pass
+
+
 # 1. Pre-register mock 'spaces' module if not installed (for local environments)
 try:
     import spaces
