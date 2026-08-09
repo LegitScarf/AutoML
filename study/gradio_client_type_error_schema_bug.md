@@ -39,9 +39,28 @@ We modified [`backend/orchestrator.py`](file:///c:/Users/KIIT/Desktop/AutoML/bac
       profile_res = json.loads(profile_res)
   ```
 
+### Step 3: Monkey Patching gradio_client Introspector (Double-Shielding)
+As a final, bulletproof layer of protection, we monkey-patched the `gradio_client` library's utility module inside **both** [`sandbox/app.py`](file:///c:/Users/KIIT/Desktop/AutoML/sandbox/app.py) and [`backend/orchestrator.py`](file:///c:/Users/KIIT/Desktop/AutoML/backend/orchestrator.py).
+
+If the introspector processes a boolean JSON schema property, our patch intercepts it:
+```python
+try:
+    import gradio_client.utils
+    orig_get_type = gradio_client.utils.get_type
+    def patched_get_type(schema):
+        if isinstance(schema, bool):
+            return "boolean"
+        return orig_get_type(schema)
+    gradio_client.utils.get_type = patched_get_type
+except Exception:
+    pass
+```
+This guarantees that even if dynamic Gradio components on the server or incoming requests from Render trigger schema calculations, the type checker will never throw `TypeError: argument of type 'bool' is not iterable`.
+
 ---
 
 ## 4. Deployment Status
 Both updates were successfully pushed to production:
 * **Hugging Face Sandbox Repo:** Pushed to `main` branch.
 * **Main AutoML Repo:** Pushed to `prod` branch on GitHub.
+
