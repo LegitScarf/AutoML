@@ -49,6 +49,9 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
             client = Client(HF_SANDBOX_URL)
             profile_res = client.predict(temp_path, api_name="/profile")
             
+            if isinstance(profile_res, str):
+                profile_res = json.loads(profile_res)
+            
             if "error" in profile_res:
                 raise Exception(profile_res["error"])
                 
@@ -107,6 +110,9 @@ print("AutoML Training Completed Successfully!")
         add_log("Submitting execution task to Hugging Face ZeroGPU Sandbox...", "system")
         
         exec_res = client.predict(script_code, 60, api_name="/execute")
+        
+        if isinstance(exec_res, str):
+            exec_res = json.loads(exec_res)
         
         exit_code = exec_res.get("exit_code", -2)
         stdout = exec_res.get("stdout", "")

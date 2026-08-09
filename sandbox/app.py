@@ -18,15 +18,17 @@ import subprocess
 import pandas as pd
 import gradio as gr
 
+import json
+
 def profile_dataset(file_path):
     """
     Ingests and profiles dataset using Pandas, returning schema and summary statistics.
     """
     if not file_path:
-        return {"error": "No file uploaded."}
+        return json.dumps({"error": "No file uploaded."})
     
     if not file_path.endswith(('.csv', '.xlsx')):
-        return {"error": "Unsupported file format. Upload CSV or Excel."}
+        return json.dumps({"error": "Unsupported file format. Upload CSV or Excel."})
         
     try:
         if file_path.endswith('.csv'):
@@ -34,7 +36,7 @@ def profile_dataset(file_path):
         else:
             df = pd.read_excel(file_path)
             
-        return {
+        res = {
             "num_rows": df.shape[0],
             "num_cols": df.shape[1],
             "dtypes": {col: str(dtype) for col, dtype in df.dtypes.items()},
@@ -42,8 +44,9 @@ def profile_dataset(file_path):
             "numeric_columns": list(df.select_dtypes(include='number').columns),
             "categorical_columns": list(df.select_dtypes(exclude='number').columns),
         }
+        return json.dumps(res)
     except Exception as e:
-        return {"error": f"Failed to profile dataset: {str(e)}"}
+        return json.dumps({"error": f"Failed to profile dataset: {str(e)}"})
 
 @spaces.GPU
 def run_script_in_sandbox(script_content: str, timeout: int = 60):
@@ -62,11 +65,12 @@ def run_script_in_sandbox(script_content: str, timeout: int = 60):
             text=True,
             timeout=timeout,
         )
-        return {"exit_code": res.returncode, "stdout": res.stdout, "stderr": res.stderr}
+        out = {"exit_code": res.returncode, "stdout": res.stdout, "stderr": res.stderr}
+        return json.dumps(out)
     except subprocess.TimeoutExpired:
-        return {"exit_code": -1, "stdout": "", "stderr": f"Timed out after {timeout}s."}
+        return json.dumps({"exit_code": -1, "stdout": "", "stderr": f"Timed out after {timeout}s."})
     except Exception as e:
-        return {"exit_code": -2, "stdout": "", "stderr": str(e)}
+        return json.dumps({"exit_code": -2, "stdout": "", "stderr": str(e)})
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -81,14 +85,14 @@ with gr.Blocks(title="AutoML Sandbox", theme=gr.themes.Soft()) as demo:
     
     # 1. Profile Endpoint
     file_input = gr.File(label="Upload Dataset", file_types=[".csv", ".xlsx"], visible=False)
-    profile_output = gr.JSON(label="Profile JSON", visible=False)
+    profile_output = gr.Textbox(label="Profile JSON String", visible=False)
     profile_btn = gr.Button("Profile", visible=False)
     profile_btn.click(fn=profile_dataset, inputs=file_input, outputs=profile_output, api_name="profile")
     
     # 2. Execute Endpoint
     script_input = gr.Textbox(label="Python Script", visible=False)
     timeout_input = gr.Number(value=60, label="Timeout", visible=False)
-    execute_output = gr.JSON(label="Execution Output", visible=False)
+    execute_output = gr.Textbox(label="Execution Output String", visible=False)
     execute_btn = gr.Button("Execute", visible=False)
     execute_btn.click(
         fn=run_script_in_sandbox,
