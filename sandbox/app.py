@@ -40,14 +40,28 @@ def profile_dataset(file_path):
     if not file_path:
         return json.dumps({"error": "No file uploaded."})
     
-    if not file_path.endswith(('.csv', '.xlsx')):
-        return json.dumps({"error": "Unsupported file format. Upload CSV or Excel."})
+    # Resolve actual file path if passed as Gradio FileData dict/object
+    actual_path = None
+    if isinstance(file_path, str):
+        actual_path = file_path
+    elif isinstance(file_path, dict):
+        actual_path = file_path.get("path") or file_path.get("name")
+    elif hasattr(file_path, "path"):
+        actual_path = file_path.path
+    elif hasattr(file_path, "name"):
+        actual_path = file_path.name
+        
+    if not actual_path:
+        return json.dumps({"error": "Failed to resolve uploaded file path."})
+        
+    if not actual_path.endswith(('.csv', '.xlsx')):
+        return json.dumps({"error": f"Unsupported file format. Path: {actual_path}"})
         
     try:
-        if file_path.endswith('.csv'):
-            df = pd.read_csv(file_path)
+        if actual_path.endswith('.csv'):
+            df = pd.read_csv(actual_path)
         else:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(actual_path)
             
         res = {
             "num_rows": df.shape[0],
@@ -115,4 +129,4 @@ with gr.Blocks(title="AutoML Sandbox", theme=gr.themes.Soft()) as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    demo.launch(server_name="0.0.0.0", server_port=7860, show_error=True)
