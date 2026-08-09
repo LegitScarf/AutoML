@@ -1,4 +1,5 @@
 import os
+import tempfile
 from fastapi import FastAPI, UploadFile, File, Form, Depends, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -55,6 +56,14 @@ async def upload_dataset(
     db.commit()
     db.refresh(run)
 
+    # Save uploaded file bytes to a temp file tagged by run ID
+    temp_file_path = os.path.join(tempfile.gettempdir(), f"{run.id}_{file.filename}")
+    try:
+        with open(temp_file_path, "wb") as f:
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to buffer dataset on server disk: {str(e)}")
+
     return {
         "run_id": run.id,
         "dataset_name": run.dataset_name,
@@ -78,15 +87,31 @@ def trigger_pipeline(
     if run.status != "pending":
         raise HTTPException(status_code=400, detail=f"Run has already been triggered. Status: {run.status}")
 
+    # Retrieve stored temp file content
+    temp_file_path = os.path.join(tempfile.gettempdir(), f"{run.id}_{run.dataset_name}")
+    file_content = b""
+    if os.path.exists(temp_file_path):
+        try:
+            with open(temp_file_path, "rb") as f:
+                file_content = f.read()
+        except Exception:
+            pass
+
     # Launch background job
-    # For a real database, we pass file contents from a storage URL, but for local/demo we trigger directly
     background_tasks.add_task(
         run_automl_pipeline,
         run_id=run.id,
-        file_content=b"", # File contents omitted for local execution demo
+        file_content=file_content,
         filename=run.dataset_name,
         db=db
     )
+    
+    # Clean up temp file from disk now that bytes are loaded into the worker task
+    try:
+        if os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+    except Exception:
+        pass
     
     run.status = "uploading"
     db.commit()
