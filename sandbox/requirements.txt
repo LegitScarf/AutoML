@@ -1,0 +1,17 @@
+# Server framework packages (fastapi, uvicorn, pydantic, python-multipart)
+# are intentionally omitted here — Hugging Face Spaces installs them
+# automatically as part of gradio[oauth]==5.9.1 with compatible versions.
+# Pinning them here caused a ResolutionImpossible conflict.
+
+# ── Data & ML libraries ─────────────────────────────────────────────────────
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.5.0
+joblib==1.4.2
+xgboost==2.0.3
+lightgbm==4.3.0
+catboost==1.2.5
+reportlab==4.2.0
+matplotlib==3.9.0
+seaborn==0.13.2
+openpyxl==3.1.2

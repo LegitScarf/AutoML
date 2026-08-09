@@ -44,3 +44,10 @@ sample_dataset.csv
 .idea/
 .DS_Store
 Thumbs.db
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+build-manifest.json
+react-loadable-manifest.json

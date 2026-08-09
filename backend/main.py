@@ -1,0 +1,120 @@
+import os
+from fastapi import FastAPI, UploadFile, File, Form, Depends, BackgroundTasks, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from typing import List
+
+from .db.database import get_db
+from .models import AutoMLRun
+from .orchestrator import run_automl_pipeline
+
+app = FastAPI(title="AutoML Backend Orchestrator", version="0.1.0")
+
+# Enable CORS for Vercel Frontend and local dev
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, restrict to Vercel domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/")
+def read_root():
+    return {"message": "AutoML Agentic Core API online"}
+
+@app.post("/api/upload")
+async def upload_dataset(
+    file: UploadFile = File(...),
+    target_variable: str = Form("purchased"),
+    task_type: str = Form("classification"),
+    selected_model: str = Form("Logistic Regression"),
+    min_threshold: float = Form(0.90),
+    db: Session = Depends(get_db)
+):
+    """
+    Receives dataset file, saves metadata in database, and schedules upload to storage.
+    """
+    if not file.filename.endswith(('.csv', '.xlsx')):
+        raise HTTPException(status_code=400, detail="Unsupported file format. Upload CSV or Excel.")
+
+    # Read content to forward to orchestrator
+    content = await file.read()
+    
+    # Save a run record in DB
+    run = AutoMLRun(
+        dataset_name=file.filename,
+        target_variable=target_variable,
+        task_type=task_type,
+        selected_model=selected_model,
+        min_threshold=min_threshold,
+        status="pending",
+        logs=["[SYSTEM] Run initialized. Ready for execution."]
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    return {
+        "run_id": run.id,
+        "dataset_name": run.dataset_name,
+        "status": run.status,
+        "message": "Dataset uploaded and run initialized successfully."
+    }
+
+@app.post("/api/runs/{run_id}/trigger")
+def trigger_pipeline(
+    run_id: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Triggers the AutoML pipeline asynchronously in the background.
+    """
+    run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="AutoML Run not found.")
+        
+    if run.status != "pending":
+        raise HTTPException(status_code=400, detail=f"Run has already been triggered. Status: {run.status}")
+
+    # Launch background job
+    # For a real database, we pass file contents from a storage URL, but for local/demo we trigger directly
+    background_tasks.add_task(
+        run_automl_pipeline,
+        run_id=run.id,
+        file_content=b"", # File contents omitted for local execution demo
+        filename=run.dataset_name,
+        db=db
+    )
+    
+    run.status = "uploading"
+    db.commit()
+
+    return {"message": "AutoML pipeline execution triggered in the background."}
+
+@app.get("/api/runs")
+def get_all_runs(db: Session = Depends(get_db)):
+    """
+    Returns list of all historical AutoML training runs.
+    """
+    runs = db.query(AutoMLRun).order_by(AutoMLRun.created_at.desc()).all()
+    return runs
+
+@app.get("/api/runs/{run_id}/status")
+def get_run_status(run_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieves execution logs, progress status, and final accuracy metrics.
+    """
+    run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id).first()
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found.")
+        
+    return {
+        "run_id": run.id,
+        "status": run.status,
+        "metrics": run.metrics,
+        "logs": run.logs,
+        "bundle_url": run.bundle_url,
+        "created_at": run.created_at
+    }

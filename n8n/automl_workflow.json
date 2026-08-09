@@ -43,7 +43,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ \n  {\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      {\n        \"role\": \"system\",\n        \"content\": \"You are an expert ML Engineer. Write a python training script that loads the dataset at the path specified in the user message, profiles the dataset, trains a logistic regression or random forest model to predict the target variable, and saves 'model.pkl'. Return ONLY valid python code. Do not include markdown formatting.\"\n      },\n      {\n        \"role\": \"user\",\n        \"content\": \"Dataset path: \" + $('Webhook Trigger').item.json.body.file_path + \". Dataset profile: \" + JSON.stringify($json) + \". Target variable: \" + $('Webhook Trigger').item.json.body.target_variable\n      }\n    ]\n  }\n}}",
+        "jsonBody": "={{ \n  {\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      {\n        \"role\": \"system\",\n        \"content\": \"You are an expert ML Engineer. Write a single python training script that performs the following tasks:\\n1. Loads the dataset from the path specified in the user message.\\n2. Preprocesses the data (imputation, encoding, scaling) and fits a pipeline.\\n3. Trains the specified model class for the specified task type (regression or classification) to predict the target variable.\\n4. Evaluates the model on a test split. Calculated metric must be Accuracy for classification, R2 Score for regression. If the score is below the target threshold, the script MUST perform hyperparameter tuning (e.g. GridSearchCV/RandomizedSearchCV or a tuning loop) over a range of parameters to maximize the score.\\n5. Outputs the final test score to stdout in the exact format: 'METRIC_SCORE: <float>'.\\n6. Saves all output files to the target output directory. The script must check if the directory '/workspace/host_dir' exists. If it does, write all files there; otherwise, write them to the current directory '.'.\\n7. Saves the trained model as 'model.pkl' and the fitted preprocessing pipeline as 'preprocessor.pkl' in the output directory.\\n8. Writes a 'requirements.txt' file listing packages used in the output directory.\\n9. Writes a standalone 'inference.py' in the output directory containing a predict(data) function that loads model.pkl and preprocessor.pkl from the same directory as the script and returns predictions.\\n10. Generates a 'training_report.pdf' in the output directory containing evaluation metrics (Accuracy and F1-Score for classification, or R2, MAE, MSE for regression) and a feature importance bar chart created via matplotlib. Crucial: Avoid calling '.axis()' on matplotlib Figure objects (e.g. 'fig.axis()') as this causes an AttributeError. Instead, call 'ax.axis()' on the Axes object or use 'plt.axis()'.\\n\\nReturn ONLY valid python code. Do not include markdown code block formatting (like ```python).\"\n      },\n      {\n        \"role\": \"user\",\n        \"content\": \"Dataset path: \" + $('Webhook Trigger').item.json.body.file_path + \". Target variable: \" + $('Webhook Trigger').item.json.body.target_variable + \". Task type: \" + $('Webhook Trigger').item.json.body.task_type + \". Selected model: \" + $('Webhook Trigger').item.json.body.selected_model + \". Target threshold: \" + $('Webhook Trigger').item.json.body.min_threshold + \". Dataset profile: \" + JSON.stringify($json)\n      }\n    ]\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -90,6 +90,15 @@
                 "type": "number",
                 "operation": "equals"
               }
+            },
+            {
+              "id": "check-score",
+              "leftValue": "={{ $json.stdout.match(/METRIC_SCORE:\\s*([0-9.]+)/) ? parseFloat($json.stdout.match(/METRIC_SCORE:\\s*([0-9.]+)/)[1]) : 0 }}",
+              "rightValue": "={{ $('Webhook Trigger').item.json.body.min_threshold }}",
+              "operator": {
+                "type": "number",
+                "operation": "largerEqual"
+              }
             }
           ],
           "combinator": "and"
@@ -113,7 +122,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ \n  {\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      {\n        \"role\": \"system\",\n        \"content\": \"The training script failed. Please fix the error and write an updated version. Return ONLY the code.\"\n      },\n      {\n        \"role\": \"user\",\n        \"content\": \"Error:\\n\" + $('Execute in Sandbox').item.json.stderr + \"\\n\\nOriginal Code:\\n\" + $('CodeGen Agent').item.json.choices[0].message.content\n      }\n    ]\n  }\n}}",
+        "jsonBody": "={{ \n  {\n    \"model\": \"gpt-4o\",\n    \"messages\": [\n      {\n        \"role\": \"system\",\n        \"content\": $json.exit_code !== 0 ? 'The training script failed. Please fix the error and write an updated version. Return ONLY the code.' : 'The training script ran successfully but the model performance did not meet the target threshold. Please write an updated training script with broader hyperparameter search space, better scaling/encoding, or feature engineering to achieve higher performance. Return ONLY the code.'\n      },\n      {\n        \"role\": \"user\",\n        \"content\": $json.exit_code !== 0 ? 'Error:\\n' + $json.stderr + '\\n\\nOriginal Code:\\n' + $('CodeGen Agent').item.json.choices[0].message.content : 'Achieved score: ' + ($json.stdout.match(/METRIC_SCORE:\\s*([0-9.]+)/) ? parseFloat($json.stdout.match(/METRIC_SCORE:\\s*([0-9.]+)/)[1]) : 0) + '\\nTarget threshold: ' + $('Webhook Trigger').item.json.body.min_threshold + '\\n\\nOriginal Code:\\n' + $('CodeGen Agent').item.json.choices[0].message.content\n      }\n    ]\n  }\n}}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

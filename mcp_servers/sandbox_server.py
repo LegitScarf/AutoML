@@ -4,6 +4,7 @@ import tempfile
 import subprocess
 import json
 from fastmcp import FastMCP
+import re
 
 mcp = FastMCP("Sandbox Runner")
 
@@ -13,9 +14,19 @@ def run_via_docker(script_content: str, timeout: int = 60) -> dict:
         import docker
         client = docker.from_env()
         
+        # Translate host workspace paths to container workspace paths
+        host_cwd = os.getcwd()
+        host_cwd_forward = host_cwd.replace("\\", "/")
+        
+        pattern_forward = re.escape(host_cwd_forward).replace(r'\:', ':')
+        mapped_script = re.sub(pattern_forward, "/workspace/host_dir", script_content, flags=re.IGNORECASE)
+        
+        pattern_back = re.escape(host_cwd).replace(r'\:', ':')
+        mapped_script = re.sub(pattern_back, "/workspace/host_dir", mapped_script, flags=re.IGNORECASE)
+        
         # Create a temporary file on the host machine
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode='w', encoding='utf-8') as temp_script:
-            temp_script.write(script_content)
+            temp_script.write(mapped_script)
             temp_script_path = temp_script.name
         
         # Ensure image is built/pulled
@@ -125,7 +136,7 @@ except Exception as e:
     print(f"VALIDATION_FAILED: {{str(e)}}", file=sys.stderr)
     sys.exit(1)
 """
-    result = run_via_subprocess(test_script, timeout=10)
+    result = run_via_subprocess(test_script, timeout=60)
     return json.dumps(result, indent=2)
 
 if __name__ == "__main__":

@@ -54,6 +54,15 @@ def get_sample_rows_endpoint(req: SampleRowsRequest):
 
 @app.post("/execute_script_safely")
 def execute_script_safely_endpoint(req: ExecuteRequest):
+    # Clean up old files from any previous run before executing the new script
+    files_to_clean = ["model.pkl", "preprocessor.pkl", "requirements.txt", "inference.py", "training_report.pdf"]
+    for file in files_to_clean:
+        if os.path.exists(file):
+            try:
+                os.remove(file)
+            except Exception:
+                pass
+                
     res = run_execute(req.script_content, req.timeout)
     try:
         return json.loads(res)
@@ -68,7 +77,7 @@ def validate_pipeline_endpoint(req: ValidateRequest):
         if data.get("exit_code") == 0:
             # Create a zip package of the output files
             zip_path = "automl_bundle.zip"
-            files_to_zip = ["model.pkl", "preprocessor.pkl", "inference.py"]
+            files_to_zip = ["model.pkl", "preprocessor.pkl", "requirements.txt", "inference.py", "training_report.pdf"]
             with zipfile.ZipFile(zip_path, 'w') as zipf:
                 for file in files_to_zip:
                     # Check if file exists in current dir or temp dir

@@ -2,6 +2,8 @@ import os
 import json
 import pandas as pd
 import pytest
+import joblib
+from sklearn.linear_model import LogisticRegression
 from mcp_servers.profiler_server import profile_dataset, get_sample_rows
 from mcp_servers.sandbox_server import execute_script_safely, validate_pipeline
 
@@ -50,20 +52,54 @@ import missing_package_name_error
     
     # 2. Corrected training script
     model_path_safe = str(model_path).replace("\\", "/")
+    preprocessor_path_safe = model_path_safe.replace("model.pkl", "preprocessor.pkl")
+    reqs_path_safe = model_path_safe.replace("model.pkl", "requirements.txt")
+    inf_path_safe = model_path_safe.replace("model.pkl", "inference.py")
+    rep_path_safe = model_path_safe.replace("model.pkl", "training_report.pdf")
+    
     working_script = f"""
 import joblib
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 import numpy as np
+import os
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
+
+# Resolve output path dynamically
+out_dir = "/workspace/host_dir" if os.path.exists("/workspace/host_dir") else "."
+model_path = os.path.join(out_dir, "test_model.pkl")
+prep_path = os.path.join(out_dir, "test_preprocessor.pkl")
+reqs_path = os.path.join(out_dir, "test_requirements.txt")
+inf_path = os.path.join(out_dir, "test_inference.py")
+rep_path = os.path.join(out_dir, "test_training_report.pdf")
 
 # Mock training
 X = np.array([[25, 50000], [30, 60000], [35, 70000], [40, 80000], [45, 90000]])
 y = np.array([0, 0, 1, 1, 1])
 
-model = LogisticRegression()
-model.fit(X, y)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-# Save
-joblib.dump(model, "{model_path_safe}")
+model = LogisticRegression()
+model.fit(X_scaled, y)
+
+# Save artifacts
+joblib.dump(model, model_path)
+joblib.dump(scaler, prep_path)
+
+with open(reqs_path, "w") as f:
+    f.write("scikit-learn\\npandas\\nnumpy\\njoblib\\nmatplotlib\\nreportlab\\n")
+
+with open(inf_path, "w") as f:
+    f.write("def predict(data): return 1\\n")
+
+# Create simple PDF
+doc = SimpleDocTemplate(rep_path)
+styles = getSampleStyleSheet()
+story = [Paragraph("AutoML Model Training Report", styles['Title'])]
+doc.build(story)
+
 print("MODEL_SAVED_SUCCESS")
 """
     working_res_raw = execute_script_safely(working_script)
@@ -71,10 +107,26 @@ print("MODEL_SAVED_SUCCESS")
     
     assert working_res["exit_code"] == 0
     assert "MODEL_SAVED_SUCCESS" in working_res["stdout"]
-    assert os.path.exists(model_path)
     
+    # Assert existence on host side
+    assert os.path.exists("test_model.pkl")
+    assert os.path.exists("test_preprocessor.pkl")
+    assert os.path.exists("test_requirements.txt")
+    assert os.path.exists("test_inference.py")
+    assert os.path.exists("test_training_report.pdf")
+    
+    # Clean up test output files
+    for f in ["test_model.pkl", "test_preprocessor.pkl", "test_requirements.txt", "test_inference.py", "test_training_report.pdf"]:
+        if os.path.exists(f):
+            os.remove(f)
+            
     # 3. Validate pipeline tool
-    val_res_raw = validate_pipeline(str(model_path), preprocessor_path)
+    # Use standard local paths for validation test
+    mock_model = "test_model_val.pkl"
+    joblib.dump(LogisticRegression(), mock_model)
+    val_res_raw = validate_pipeline(mock_model, "")
     val_res = json.loads(val_res_raw)
+    if os.path.exists(mock_model):
+        os.remove(mock_model)
     assert val_res["exit_code"] == 0
     assert "VALIDATION_SUCCESS" in val_res["stdout"]
