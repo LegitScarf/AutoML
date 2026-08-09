@@ -49,17 +49,20 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
         add_log(f"Connecting to Hugging Face Sandbox at: {HF_SANDBOX_URL}")
         
         # 1. Profile Step
-        # Write bytes to temp file to upload via Gradio client
-        suffix = os.path.splitext(filename)[1]
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(file_content)
-            temp_path = tmp.name
-
         try:
-            add_log("Uploading dataset and invoking Pandas Profiler in remote sandbox...", "system")
-            # Gradio Client handles file uploading and execution under the hood
+            add_log("Ingesting dataset and invoking pandas profiler in remote sandbox...", "system")
+            import io
+            import pandas as pd
+            
+            # If Excel, convert to CSV string
+            if filename.endswith(('.xlsx', '.xls')):
+                df_temp = pd.read_excel(io.BytesIO(file_content))
+                csv_content_str = df_temp.to_csv(index=False)
+            else:
+                csv_content_str = file_content.decode("utf-8", errors="ignore")
+                
             client = Client(HF_SANDBOX_URL)
-            profile_res = client.predict(temp_path, api_name="/profile")
+            profile_res = client.predict(csv_content_str, api_name="/profile")
             
             if isinstance(profile_res, str):
                 profile_res = json.loads(profile_res)
@@ -72,9 +75,8 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
             add_log(f"Profiling complete: Ingested {num_rows} rows, {num_cols} columns.", "ok")
             add_log(f"Columns metadata: {json.dumps(profile_res.get('dtypes', {}))}")
             
-        finally:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+        except Exception as profile_err:
+            raise profile_err
 
         # 2. Generation Step
         run.status = "generating"

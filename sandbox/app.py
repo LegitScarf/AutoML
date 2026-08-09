@@ -33,36 +33,16 @@ import gradio as gr
 
 import json
 
-def profile_dataset(file_path):
+def profile_dataset(csv_content_str):
     """
     Ingests and profiles dataset using Pandas, returning schema and summary statistics.
     """
-    if not file_path:
-        return json.dumps({"error": "No file uploaded."})
-    
-    # Resolve actual file path if passed as Gradio FileData dict/object
-    actual_path = None
-    if isinstance(file_path, str):
-        actual_path = file_path
-    elif isinstance(file_path, dict):
-        actual_path = file_path.get("path") or file_path.get("name")
-    elif hasattr(file_path, "path"):
-        actual_path = file_path.path
-    elif hasattr(file_path, "name"):
-        actual_path = file_path.name
+    if not csv_content_str:
+        return json.dumps({"error": "No CSV content provided."})
         
-    if not actual_path:
-        return json.dumps({"error": "Failed to resolve uploaded file path."})
-        
-    if not actual_path.endswith(('.csv', '.xlsx')):
-        return json.dumps({"error": f"Unsupported file format. Path: {actual_path}"})
-        
+    import io
     try:
-        if actual_path.endswith('.csv'):
-            df = pd.read_csv(actual_path)
-        else:
-            df = pd.read_excel(actual_path)
-            
+        df = pd.read_csv(io.StringIO(csv_content_str))
         res = {
             "num_rows": df.shape[0],
             "num_cols": df.shape[1],
@@ -111,10 +91,10 @@ with gr.Blocks(title="AutoML Sandbox", theme=gr.themes.Soft()) as demo:
     )
     
     # 1. Profile Endpoint
-    file_input = gr.File(label="Upload Dataset", file_types=[".csv", ".xlsx"], visible=False)
+    csv_input = gr.Textbox(label="CSV Content String", visible=False)
     profile_output = gr.Textbox(label="Profile JSON String", visible=False)
     profile_btn = gr.Button("Profile", visible=False)
-    profile_btn.click(fn=profile_dataset, inputs=file_input, outputs=profile_output, api_name="profile")
+    profile_btn.click(fn=profile_dataset, inputs=csv_input, outputs=profile_output, api_name="profile")
     
     # 2. Execute Endpoint
     script_input = gr.Textbox(label="Python Script", visible=False)
