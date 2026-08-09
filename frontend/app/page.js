@@ -11,7 +11,9 @@ import {
 
 export default function Home() {
   // Config States
-  const [backendUrl, setBackendUrl] = useState('http://localhost:8000');
+  const [backendUrl, setBackendUrl] = useState(
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  );
   const [targetVariable, setTargetVariable] = useState('purchased');
   const [taskType, setTaskType] = useState('classification');
   const [selectedModel, setSelectedModel] = useState('Random Forest');
