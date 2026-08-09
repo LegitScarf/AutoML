@@ -1,0 +1,23 @@
+name: Production Keep-Alive
+
+on:
+  schedule:
+    # Trigger every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual triggering from the GitHub UI
+
+jobs:
+  ping_services:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Backend API
+        run: |
+          echo "Pinging Render Backend API..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://automl-1-oi6d.onrender.com/)
+          echo "Response code: $STATUS"
+
+      - name: Ping Hugging Face Sandbox Space
+        run: |
+          echo "Pinging Hugging Face Space..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://legitscarf-automl-sandbox.hf.space)
+          echo "Response code: $STATUS"
