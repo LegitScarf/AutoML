@@ -33,6 +33,7 @@ export default function Home() {
   const [logs, setLogs] = useState([]);
   const [rawResponse, setRawResponse] = useState(null);
   const [downloadUrl, setDownloadUrl] = useState(null);
+  const [plan, setPlan] = useState('');
 
   // Dynamic models dropdown list based on taskType
   const classificationModels = [
@@ -183,6 +184,7 @@ export default function Home() {
     setLogs([]);
     setRawResponse(null);
     setDownloadUrl(null);
+    setPlan('');
 
     const timeStart = new Date().toLocaleTimeString();
     setLogs([
@@ -233,6 +235,10 @@ export default function Home() {
           if (!statusRes.ok) return;
 
           const data = await statusRes.json();
+
+          if (data.plan) {
+            setPlan(data.plan);
+          }
 
           // Append new logs sequentially
           if (data.logs && data.logs.length > lastLogLength) {
@@ -657,6 +663,23 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Active Execution Plan Panel */}
+      {plan && (
+        <div className="log-card" style={{ marginTop: '20px', border: '1px solid rgba(124,77,255,0.2)' }}>
+          <div className="log-hd" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="t" style={{ color: '#B39BFF', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📋</span> Active Execution Plan
+            </div>
+            <div className="kbd" style={{ backgroundColor: 'rgba(124,77,255,0.1)', color: '#B39BFF', fontSize: '10px' }}>
+              DRAFTED BY PLANNER AGENT
+            </div>
+          </div>
+          <div className="log-body" style={{ padding: '24px', color: '#BFC5D4', fontFamily: 'var(--font-inter)', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
+            {plan}
+          </div>
+        </div>
+      )}
 
       {/* Result Panel */}
       {(status === 'success' || status === 'error') && (

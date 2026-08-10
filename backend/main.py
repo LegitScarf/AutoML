@@ -16,6 +16,23 @@ from fastapi.staticfiles import StaticFiles
 os.makedirs("static/bundles", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Automatic startup schema migration patch (adds 'plan' column if missing)
+try:
+    from sqlalchemy import text
+    from .db.database import engine
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT plan FROM runs LIMIT 1;"))
+        except Exception:
+            if engine.url.drivername.startswith("sqlite"):
+                conn.execute(text("ALTER TABLE runs ADD COLUMN plan TEXT;"))
+            else:
+                conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS plan TEXT;"))
+            conn.commit()
+except Exception as e:
+    print(f"Startup migration patch skipped/completed: {str(e)}")
+
+
 # Enable CORS for Vercel Frontend and local dev
 app.add_middleware(
     CORSMiddleware,
@@ -145,6 +162,7 @@ def get_run_status(run_id: str, db: Session = Depends(get_db)):
         "status": run.status,
         "metrics": run.metrics,
         "logs": run.logs,
+        "plan": run.plan,
         "bundle_url": run.bundle_url,
         "created_at": run.created_at
     }
