@@ -246,7 +246,10 @@ export default function Home() {
             setRawResponse(data);
             if (data.status === 'complete') {
               setStatus('success');
-              setDownloadUrl(data.bundle_url || '#');
+              const fullBundleUrl = data.bundle_url && data.bundle_url.startsWith('/')
+                ? `${backendUrl}${data.bundle_url}`
+                : data.bundle_url;
+              setDownloadUrl(fullBundleUrl || '#');
               appendRawLog('[OK] Pipeline finished successfully. Model bundle produced.');
             } else {
               setStatus('error');

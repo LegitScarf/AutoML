@@ -58,29 +58,55 @@ def profile_dataset(csv_content_str):
 @spaces.GPU
 def run_script_in_sandbox(script_content: str, timeout: int = 60):
     """
-    Executes the training script inside an isolated python subprocess,
-    returning stdout, stderr, and exit_code.
+    Executes the training script inside an isolated python subprocess in a temporary directory,
+    zips up all generated model/code files in-memory, and returns stdout, stderr, exit_code,
+    and a base64 encoded string of the ZIP archive.
     """
-    with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w", encoding="utf-8") as tmp:
-        tmp.write(script_content)
-        temp_path = tmp.name
-
-    try:
-        res = subprocess.run(
-            [sys.executable, temp_path],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-        out = {"exit_code": res.returncode, "stdout": res.stdout, "stderr": res.stderr}
-        return json.dumps(out)
-    except subprocess.TimeoutExpired:
-        return json.dumps({"exit_code": -1, "stdout": "", "stderr": f"Timed out after {timeout}s."})
-    except Exception as e:
-        return json.dumps({"exit_code": -2, "stdout": "", "stderr": str(e)})
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+    import base64
+    import zipfile
+    import io
+    
+    # Create an isolated temporary directory for the execution
+    with tempfile.TemporaryDirectory() as tmpdir:
+        script_path = os.path.join(tmpdir, "model_training.py")
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write(script_content)
+            
+        try:
+            # Execute in the temporary directory
+            res = subprocess.run(
+                [sys.executable, "model_training.py"],
+                cwd=tmpdir,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            
+            # Zip all generated files in the directory
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for root, _, files in os.walk(tmpdir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        # Archive relative to tmpdir
+                        arcname = os.path.relpath(file_path, tmpdir)
+                        zip_file.write(file_path, arcname)
+                        
+            zip_buffer.seek(0)
+            zip_base64 = base64.b64encode(zip_buffer.read()).decode("utf-8")
+            
+            out = {
+                "exit_code": res.returncode,
+                "stdout": res.stdout,
+                "stderr": res.stderr,
+                "zip_base64": zip_base64
+            }
+            return json.dumps(out)
+            
+        except subprocess.TimeoutExpired:
+            return json.dumps({"exit_code": -1, "stdout": "", "stderr": f"Timed out after {timeout}s.", "zip_base64": ""})
+        except Exception as e:
+            return json.dumps({"exit_code": -2, "stdout": "", "stderr": str(e), "zip_base64": ""})
 
 # UI layout containing the API endpoints
 with gr.Blocks(title="AutoML Sandbox", theme=gr.themes.Soft()) as demo:

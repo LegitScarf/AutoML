@@ -151,10 +151,23 @@ print("AutoML Training Completed Successfully!")
         await asyncio.sleep(1.5)
         add_log("Validation: Loaded training metrics match configuration thresholds.", "ok")
         
+        # Decode and save custom ZIP bundle returned from Hugging Face sandbox
+        zip_base64 = exec_res.get("zip_base64", "")
+        if zip_base64:
+            import base64
+            os.makedirs("static/bundles", exist_ok=True)
+            bundle_path = f"static/bundles/{run_id}.zip"
+            with open(bundle_path, "wb") as f:
+                f.write(base64.b64decode(zip_base64))
+            add_log("Saved custom trained model bundle (.zip) to API gateway.", "ok")
+            run.bundle_url = f"/static/bundles/{run_id}.zip"
+        else:
+            add_log("Warning: No model artifacts bundle returned from sandbox.", "warn")
+            run.bundle_url = None
+
         # Finish pipeline
         run.status = "complete"
         run.metrics = {"accuracy": 0.945, "tuning_epochs": 50}
-        run.bundle_url = "https://huggingface.co/spaces/LegitScarf/automl-sandbox/resolve/main/model.pkl"
         db.commit()
         add_log("AutoML pipeline finished successfully! Model bundle created.", "ok")
         

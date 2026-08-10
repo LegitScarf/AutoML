@@ -11,6 +11,11 @@ from .orchestrator import run_automl_pipeline
 
 app = FastAPI(title="AutoML Backend Orchestrator", version="0.1.0")
 
+from fastapi.staticfiles import StaticFiles
+# Ensure static directory exists for bundle downloads
+os.makedirs("static/bundles", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Enable CORS for Vercel Frontend and local dev
 app.add_middleware(
     CORSMiddleware,
