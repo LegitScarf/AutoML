@@ -23,17 +23,19 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Automatic startup schema migration patch (adds 'plan' column if missing)
 try:
-    from sqlalchemy import text
+    from sqlalchemy import text, inspect
     from .db.database import engine
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("SELECT plan FROM runs LIMIT 1;"))
-        except Exception:
+    
+    # Check if column exists using metadata inspection to prevent transaction failures in Postgres
+    inspector = inspect(engine)
+    columns = [col['name'] for col in inspector.get_columns("runs")]
+    if "plan" not in columns:
+        with engine.begin() as conn:
             if engine.url.drivername.startswith("sqlite"):
                 conn.execute(text("ALTER TABLE runs ADD COLUMN plan TEXT;"))
             else:
                 conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS plan TEXT;"))
-            conn.commit()
+            print("Startup migration: plan column added successfully.")
 except Exception as e:
     print(f"Startup migration patch skipped/completed: {str(e)}")
 
