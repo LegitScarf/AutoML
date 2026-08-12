@@ -38,8 +38,7 @@ Your job is to rewrite the Python script to resolve this issue.
         messages=[
             {"role": "system", "content": "You are a senior debugging assistant that writes repaired, error-free machine learning code."},
             {"role": "user", "content": prompt}
-        ],
-        temperature=0.1
+        ]
     )
     
     code = response.choices[0].message.content.strip()

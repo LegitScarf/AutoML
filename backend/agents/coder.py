@@ -53,8 +53,7 @@ CSV_BASE64 = "{csv_base64}"
         messages=[
             {"role": "system", "content": "You are a master Python programmer that writes syntax-perfect, standalone machine learning scripts."},
             {"role": "user", "content": prompt}
-        ],
-        temperature=0.0
+        ]
     )
     
     code = response.choices[0].message.content.strip()

@@ -51,8 +51,7 @@ Output ONLY the clear, structured Markdown document. Do not wrap it in code bloc
         messages=[
             {"role": "system", "content": "You are a precise, senior data scientist that outputs markdown execution plans."},
             {"role": "user", "content": prompt}
-        ],
-        temperature=0.2
+        ]
     )
     
     return response.choices[0].message.content.strip()
