@@ -47,10 +47,10 @@ def get_clerk_jwks():
             detail=f"Failed to fetch Clerk public keys for signature verification: {str(e)}"
         )
 
-def get_current_user_id(credentials: HTTPAuthorizationCredentials = Security(security)) -> str:
+def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)) -> dict:
     """
     FastAPI dependency that extracts and validates the Clerk JWT token from the Authorization header.
-    Returns the user's Clerk ID (e.g. user_...).
+    Returns a dictionary containing the user's Clerk ID and subscription tier.
     """
     token = credentials.credentials
     jwks = get_clerk_jwks()
@@ -87,7 +87,10 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Security(sec
         if not user_id:
             raise HTTPException(status_code=401, detail="Token payload missing subject ('sub') claim.")
             
-        return user_id
+        # Extract custom metadata tier synchronized from Stripe (defaulting to 'free')
+        tier = payload.get("public_metadata", {}).get("tier", "free")
+        
+        return {"user_id": user_id, "tier": tier}
         
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token signature has expired.")

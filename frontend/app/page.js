@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { UserButton, useAuth } from '@clerk/nextjs';
+import { UserButton, useAuth, useClerk } from '@clerk/nextjs';
 import { 
   CheckCircle, 
   XCircle, 
@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
+  const { redirectToSignIn } = useClerk();
   // Config States
   const [backendUrl, setBackendUrl] = useState(
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -28,6 +29,7 @@ export default function Home() {
   // File States
   const [file, setFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const fileInputRef = useRef(null);
 
   // Pipeline States
@@ -127,6 +129,10 @@ export default function Home() {
   };
 
   const processFile = (selectedFile) => {
+    if (!userId) {
+      redirectToSignIn();
+      return;
+    }
     if (selectedFile.name.endsWith('.csv') || selectedFile.name.endsWith('.xlsx')) {
       setFile(selectedFile);
       setLogs([]);
@@ -216,6 +222,17 @@ export default function Home() {
       });
 
       if (!uploadRes.ok) {
+        if (uploadRes.status === 403) {
+          try {
+            const errData = await uploadRes.json();
+            if (errData.detail === "TRIAL_LIMIT_EXCEEDED") {
+              setShowUpgradeModal(true);
+              appendRawLog(`[ERROR] Execution blocked: Free trial run limit exhausted.`);
+              setIsRunning(false);
+              return;
+            }
+          } catch (e) {}
+        }
         throw new Error(`Upload failed with status: ${uploadRes.status}`);
       }
 
@@ -746,6 +763,134 @@ export default function Home() {
         <div>◈ AutoML · Agentic ML Engineer</div>
         <div>Orchestrated via FastAPI · Executed in sandbox · Corrected by agent</div>
       </div>
+
+      {showUpgradeModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(10, 8, 20, 0.85)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '24px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(20, 16, 38, 0.95), rgba(13, 10, 24, 0.98))',
+            border: '1px solid rgba(124, 77, 255, 0.4)',
+            boxShadow: '0 24px 64px rgba(124, 77, 255, 0.15), 0 0 100px rgba(0, 229, 209, 0.05)',
+            borderRadius: '24px',
+            padding: '40px 32px',
+            maxWidth: '480px',
+            width: '100%',
+            textAlign: 'center',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Ambient glows */}
+            <div style={{
+              position: 'absolute',
+              top: '-10%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '180px',
+              height: '180px',
+              background: 'radial-gradient(circle, rgba(124, 77, 255, 0.3) 0%, rgba(0,0,0,0) 70%)',
+              pointerEvents: 'none',
+              filter: 'blur(20px)'
+            }} />
+            
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🚀</div>
+            
+            <h2 style={{
+              fontFamily: "'Chakra Petch', sans-serif",
+              fontSize: '28px',
+              fontWeight: 700,
+              color: '#FFF',
+              marginBottom: '16px',
+              letterSpacing: '0.5px'
+            }}>
+              Upgrade to <span style={{
+                background: 'linear-gradient(90deg, #7C4DFF, #00E5D1)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}>AutoML Premium</span>
+            </h2>
+            
+            <p style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: '15px',
+              lineHeight: '1.6',
+              color: '#A0A0BA',
+              marginBottom: '32px'
+            }}>
+              You've successfully completed your <strong>2 free trials</strong>. Upgrade to premium to unlock unlimited agent runs, automated hyperparameter tuning, and download production model bundles!
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <a 
+                href="https://buy.stripe.com/test_eVaeYm2zL6gW34s3cc"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  background: 'linear-gradient(90deg, #7C4DFF, #00E5D1)',
+                  color: '#0A0814',
+                  fontFamily: "'Chakra Petch', sans-serif",
+                  fontWeight: 700,
+                  fontSize: '16px',
+                  padding: '14px 28px',
+                  borderRadius: '12px',
+                  textDecoration: 'none',
+                  display: 'block',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                  boxShadow: '0 8px 24px rgba(124, 77, 255, 0.35)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 12px 28px rgba(124, 77, 255, 0.45)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(124, 77, 255, 0.35)';
+                }}
+              >
+                Upgrade to Premium ($10/mo)
+              </a>
+              
+              <button 
+                onClick={() => setShowUpgradeModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#A0A0BA',
+                  fontFamily: "'Inter', sans-serif",
+                  fontWeight: 500,
+                  fontSize: '14px',
+                  padding: '12px 28px',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s, color 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                  e.currentTarget.style.color = '#FFF';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#A0A0BA';
+                }}
+              >
+                Continue exploring
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

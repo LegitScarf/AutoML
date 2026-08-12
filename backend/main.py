@@ -13,7 +13,7 @@ from typing import List
 from .db.database import get_db
 from .models import AutoMLRun
 from .orchestrator import run_automl_pipeline
-from .auth import get_current_user_id
+from .auth import get_current_user
 
 app = FastAPI(title="AutoML Backend Orchestrator", version="0.1.0")
 
@@ -71,7 +71,7 @@ async def upload_dataset(
     selected_model: str = Form("Logistic Regression"),
     min_threshold: float = Form(0.90),
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Receives dataset file, saves metadata in database, and schedules upload to storage.
@@ -82,6 +82,15 @@ async def upload_dataset(
     # Read content to forward to orchestrator
     content = await file.read()
     
+    current_user_id = current_user["user_id"]
+    user_tier = current_user["tier"]
+    
+    # Enforce 2-run free trial limit
+    if user_tier != "premium":
+        run_count = db.query(AutoMLRun).filter(AutoMLRun.user_id == current_user_id).count()
+        if run_count >= 2:
+            raise HTTPException(status_code=403, detail="TRIAL_LIMIT_EXCEEDED")
+
     # Save a run record in DB
     run = AutoMLRun(
         dataset_name=file.filename,
@@ -117,11 +126,12 @@ def trigger_pipeline(
     run_id: str,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Triggers the AutoML pipeline asynchronously in the background.
     """
+    current_user_id = current_user["user_id"]
     run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id, AutoMLRun.user_id == current_user_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="AutoML Run not found or access denied.")
@@ -163,11 +173,12 @@ def trigger_pipeline(
 @app.get("/api/runs")
 def get_all_runs(
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Returns list of all historical AutoML training runs for the current user.
     """
+    current_user_id = current_user["user_id"]
     runs = db.query(AutoMLRun).filter(AutoMLRun.user_id == current_user_id).order_by(AutoMLRun.created_at.desc()).all()
     return runs
 
@@ -175,11 +186,12 @@ def get_all_runs(
 def get_run_status(
     run_id: str,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Retrieves execution logs, progress status, and final accuracy metrics.
     """
+    current_user_id = current_user["user_id"]
     run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id, AutoMLRun.user_id == current_user_id).first()
     if not run:
         raise HTTPException(status_code=404, detail="Run not found or access denied.")
