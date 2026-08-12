@@ -24,6 +24,7 @@ class AutoMLRun(Base):
     logs = Column(JSON, default=[]) # Store logs as a JSON array of strings for portable DB compatibility
     bundle_url = Column(String(512))
     plan = Column(Text, nullable=True)
+    user_id = Column(String(100), nullable=True, index=True)
 
 # Helper to automatically construct database tables on module import
 Base.metadata.create_all(bind=engine)

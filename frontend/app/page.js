@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { UserButton, useAuth } from '@clerk/nextjs';
 import { 
   CheckCircle, 
   XCircle, 
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
+  const { getToken } = useAuth();
   // Config States
   const [backendUrl, setBackendUrl] = useState(
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -202,10 +204,15 @@ export default function Home() {
       formData.append('selected_model', selectedModel);
       formData.append('min_threshold', minThreshold.toString());
 
+      const token = await getToken();
+
       // 1. Upload file metadata
       const uploadRes = await fetch(`${backendUrl}/api/upload`, {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (!uploadRes.ok) {
@@ -219,6 +226,9 @@ export default function Home() {
       appendRawLog(`[SYSTEM] Triggering pipeline orchestrator thread...`);
       const triggerRes = await fetch(`${backendUrl}/api/runs/${run_id}/trigger`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (!triggerRes.ok) {
@@ -231,7 +241,11 @@ export default function Home() {
       let lastLogLength = 0;
       const pollInterval = setInterval(async () => {
         try {
-          const statusRes = await fetch(`${backendUrl}/api/runs/${run_id}/status`);
+          const statusRes = await fetch(`${backendUrl}/api/runs/${run_id}/status`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
           if (!statusRes.ok) return;
 
           const data = await statusRes.json();
@@ -316,9 +330,12 @@ export default function Home() {
           <a href="#logs">Activity</a>
         </div>
 
-        <div className="nav-status">
-          <span className="pulse"></span>
-          <span>Sandbox online</span>
+        <div className="nav-status" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="pulse"></span>
+            <span>Sandbox online</span>
+          </div>
+          <UserButton afterSignOutUrl="/" />
         </div>
       </div>
 

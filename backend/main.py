@@ -13,6 +13,7 @@ from typing import List
 from .db.database import get_db
 from .models import AutoMLRun
 from .orchestrator import run_automl_pipeline
+from .auth import get_current_user_id
 
 app = FastAPI(title="AutoML Backend Orchestrator", version="0.1.0")
 
@@ -21,14 +22,15 @@ from fastapi.staticfiles import StaticFiles
 os.makedirs("static/bundles", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Automatic startup schema migration patch (adds 'plan' column if missing)
+# Automatic startup schema migration patch (adds 'plan' and 'user_id' columns if missing)
 try:
     from sqlalchemy import text, inspect
     from .db.database import engine
     
-    # Check if column exists using metadata inspection to prevent transaction failures in Postgres
+    # Check columns using metadata inspection to prevent transaction failures in Postgres
     inspector = inspect(engine)
     columns = [col['name'] for col in inspector.get_columns("runs")]
+    
     if "plan" not in columns:
         with engine.begin() as conn:
             if engine.url.drivername.startswith("sqlite"):
@@ -36,6 +38,14 @@ try:
             else:
                 conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS plan TEXT;"))
             print("Startup migration: plan column added successfully.")
+            
+    if "user_id" not in columns:
+        with engine.begin() as conn:
+            if engine.url.drivername.startswith("sqlite"):
+                conn.execute(text("ALTER TABLE runs ADD COLUMN user_id VARCHAR(100);"))
+            else:
+                conn.execute(text("ALTER TABLE runs ADD COLUMN IF NOT EXISTS user_id VARCHAR(100);"))
+            print("Startup migration: user_id column added successfully.")
 except Exception as e:
     print(f"Startup migration patch skipped/completed: {str(e)}")
 
@@ -60,7 +70,8 @@ async def upload_dataset(
     task_type: str = Form("classification"),
     selected_model: str = Form("Logistic Regression"),
     min_threshold: float = Form(0.90),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
     """
     Receives dataset file, saves metadata in database, and schedules upload to storage.
@@ -79,6 +90,7 @@ async def upload_dataset(
         selected_model=selected_model,
         min_threshold=min_threshold,
         status="pending",
+        user_id=current_user_id,
         logs=["[SYSTEM] Run initialized. Ready for execution."]
     )
     db.add(run)
@@ -104,14 +116,15 @@ async def upload_dataset(
 def trigger_pipeline(
     run_id: str,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
 ):
     """
     Triggers the AutoML pipeline asynchronously in the background.
     """
-    run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id).first()
+    run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id, AutoMLRun.user_id == current_user_id).first()
     if not run:
-        raise HTTPException(status_code=404, detail="AutoML Run not found.")
+        raise HTTPException(status_code=404, detail="AutoML Run not found or access denied.")
         
     if run.status != "pending":
         raise HTTPException(status_code=400, detail=f"Run has already been triggered. Status: {run.status}")
@@ -148,21 +161,28 @@ def trigger_pipeline(
     return {"message": "AutoML pipeline execution triggered in the background."}
 
 @app.get("/api/runs")
-def get_all_runs(db: Session = Depends(get_db)):
+def get_all_runs(
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
+):
     """
-    Returns list of all historical AutoML training runs.
+    Returns list of all historical AutoML training runs for the current user.
     """
-    runs = db.query(AutoMLRun).order_by(AutoMLRun.created_at.desc()).all()
+    runs = db.query(AutoMLRun).filter(AutoMLRun.user_id == current_user_id).order_by(AutoMLRun.created_at.desc()).all()
     return runs
 
 @app.get("/api/runs/{run_id}/status")
-def get_run_status(run_id: str, db: Session = Depends(get_db)):
+def get_run_status(
+    run_id: str,
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id)
+):
     """
     Retrieves execution logs, progress status, and final accuracy metrics.
     """
-    run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id).first()
+    run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id, AutoMLRun.user_id == current_user_id).first()
     if not run:
-        raise HTTPException(status_code=404, detail="Run not found.")
+        raise HTTPException(status_code=404, detail="Run not found or access denied.")
         
     return {
         "run_id": run.id,
