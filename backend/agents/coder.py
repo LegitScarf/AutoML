@@ -8,18 +8,21 @@ def ask_coder_agent(model_name: str, task: str, target: str, plan: str, csv_base
     """
     client = get_openai_client()
     
-    # We pass the full base64 dataset but show the code snippet structure in instructions
     prompt = f"""You are a senior Machine Learning Code Generation Agent. Your job is to translate a structured data science plan into a single, clean, highly robust Python script.
 
 ## Core Rules:
-1. **Load Dataset from Memory:** You must decode the embedded base64 CSV string inside the script using Python's `base64` and `io.StringIO` packages.
+1. **Load Dataset from Memory:** The dataset will be injected automatically as a base64 string placeholder `__CSV_BASE64_DATA__`.
+   Your script MUST decode and read it as follows:
    ```python
    import base64
    import io
-   CSV_BASE64 = "{csv_base64[:40]}... (truncated)"
+   import pandas as pd
+
+   CSV_BASE64 = "__CSV_BASE64_DATA__"
    csv_data = base64.b64decode(CSV_BASE64).decode('utf-8')
    df = pd.read_csv(io.StringIO(csv_data))
    ```
+   Do NOT change the placeholder name `__CSV_BASE64_DATA__`.
 2. **Handle Preprocessing pipelines:** Create a Scikit-Learn `ColumnTransformer` with `Pipeline` to impute missing values (mean for numeric, most frequent for categorical) and transform features (StandardScaler for numeric, OneHotEncoder(handle_unknown='ignore') for categorical).
 3. **Multicollinearity Checks (VIF):** If this is a linear model (Linear Regression, Logistic Regression), write a lightweight loop to calculate VIF dynamically using a linear regression model (to avoid external packages like statsmodels) and drop features where VIF > 5.0 before training.
 4. **Data Partitioning:** Split data into an 80/20 train/test split. Fit the preprocessor on the train set and transform both train and test sets (prevent data leakage!).
@@ -44,8 +47,6 @@ def ask_coder_agent(model_name: str, task: str, target: str, plan: str, csv_base
 * **Task Type:** {task}
 * **Numeric Columns:** {repr(numeric_cols)}
 * **Categorical Columns:** {repr(categorical_cols)}
-* **Base64 Dataset Data:**
-CSV_BASE64 = "{csv_base64}"
 """
 
     response = client.chat.completions.create(
@@ -63,4 +64,17 @@ CSV_BASE64 = "{csv_base64}"
     code = re.sub(r"^```\s*", "", code)
     code = re.sub(r"\s*```$", "", code)
     
+    # Inject actual base64 dataset into the placeholder safely post-LLM generation
+    if "__CSV_BASE64_DATA__" in code:
+        code = code.replace("__CSV_BASE64_DATA__", csv_base64)
+    elif "CSV_BASE64" in code:
+        code = re.sub(r'CSV_BASE64\s*=\s*["\'][^"\']*["\']', f'CSV_BASE64 = "{csv_base64}"', code)
+    else:
+        dataset_preamble = (
+            f'import base64\nimport io\nimport pandas as pd\n'
+            f'CSV_BASE64 = "{csv_base64}"\n'
+            f'df = pd.read_csv(io.StringIO(base64.b64decode(CSV_BASE64).decode("utf-8")))\n'
+        )
+        code = dataset_preamble + code
+
     return code.strip()

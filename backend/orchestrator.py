@@ -205,7 +205,7 @@ def run_automl_pipeline(run_id: str, file_content: bytes, filename: str):
                         
                     add_log(f"Attempt {attempts} crashed. Invoking Debugger Agent to repair script...", "warn")
                     error_context = f"Runtime Crash Error (Exit Code {exit_code}):\n{stderr}"
-                    current_code = ask_debugger_agent(current_code, error_context, plan)
+                    current_code = ask_debugger_agent(current_code, error_context, plan, csv_base64)
                     continue
                 
                 # Check performance score against user threshold
@@ -223,7 +223,7 @@ def run_automl_pipeline(run_id: str, file_content: bytes, filename: str):
                         
                     add_log(f"Target threshold not met: {score_key} {score:.4f} < threshold {min_threshold}. Invoking Debugger Agent to optimize model...", "warn")
                     error_context = f"Model validation performance failed to meet the requirement. Current {score_key} = {score:.4f}. Target threshold = {min_threshold}."
-                    current_code = ask_debugger_agent(current_code, error_context, plan)
+                    current_code = ask_debugger_agent(current_code, error_context, plan, csv_base64)
                     
             except Exception as loop_err:
                 client = None  # Force fresh connection on next attempt
@@ -231,7 +231,7 @@ def run_automl_pipeline(run_id: str, file_content: bytes, filename: str):
                 if attempts >= max_attempts:
                     raise loop_err
                 error_context = f"Communication / Subprocess Error: {str(loop_err)}"
-                current_code = ask_debugger_agent(current_code, error_context, plan)
+                current_code = ask_debugger_agent(current_code, error_context, plan, csv_base64)
                 time.sleep(2)
                 
         # 5. Verification Step
