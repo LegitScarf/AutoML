@@ -61,9 +61,8 @@ def run_automl_pipeline(run_id: str, file_content: bytes, filename: str):
             run.logs = current_logs
             db.commit()
      
-        try:
-            run.status = "profiling"
-            db.commit()
+        run.status = "profiling"
+        db.commit()
         if not HF_SANDBOX_URL:
             raise ValueError(
                 "HF_SANDBOX_URL is not configured. Please set HF_SANDBOX_URL in your environment variables "
