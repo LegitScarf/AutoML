@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
 > **Ship production-grade machine learning models without writing the pipeline.**  
-> AutoML is an enterprise-grade, multi-agent cognitive system that automates Exploratory Data Analysis (EDA), statistical modeling planning, data preprocessing, scikit-learn code synthesis, isolated sandboxed execution, self-correction debugging, and one-click inference bundle packaging — running end-to-end in **under 3 minutes**.
+> AutoML is an enterprise-grade, multi-agent cognitive platform that replaces manual data science iteration cycles with an autonomous, self-healing execution loop. Point it at any structured CSV or Excel dataset, define your target column, and the multi-agent engine profiles the schema, plans statistical safeguards, synthesizes executable Scikit-Learn code, runs it inside an isolated sandbox, self-corrects on failure, and packages a deployment-ready inference bundle — running end-to-end in **under 3 minutes**.
 
 ---
 
@@ -21,27 +21,27 @@
 - [Multi-Agent Cognitive Engine](#-multi-agent-cognitive-engine)
 - [Dual Sandbox Execution Environments](#-dual-sandbox-execution-environments)
 - [Model Context Protocol (MCP) & n8n Integration](#-model-context-protocol-mcp--n8n-integration)
-- [Production Inference Bundle](#-production-inference-bundle)
-- [Engineering Checks & Balances](#-engineering-checks--balances)
+- [Production Inference Deliverables](#-production-inference-deliverables)
+- [Security, Privacy & Sandboxing Guardrails](#-security-privacy--sandboxing-guardrails)
 - [Repository Structure](#-repository-structure)
-- [Getting Started](#-getting-started)
+- [Quickstart & Installation](#-quickstart--installation)
   - [Prerequisites](#prerequisites)
-  - [Environment Variables](#environment-variables)
-  - [Backend Setup](#1-backend-orchestrator)
-  - [Frontend Setup](#2-nextjs-14-frontend)
-  - [Sandbox Setup (Cloud & Local Docker)](#3-execution-sandbox)
+  - [Environment Variables Setup](#environment-variables-setup)
+  - [1. Backend API Gateway](#1-backend-api-gateway)
+  - [2. Next.js 14 Dashboard](#2-nextjs-14-dashboard)
+  - [3. Execution Sandbox Options](#3-execution-sandbox-options)
 - [API Reference](#-api-reference)
-- [Testing](#-testing)
-- [Roadmap](#-roadmap)
+- [Supported Machine Learning Algorithms](#-supported-machine-learning-algorithms)
+- [Testing & Quality Assurance](#-testing--quality-assurance)
 - [License](#-license)
 
 ---
 
 ## 🚀 Executive Overview
 
-Data scientists and ML engineers spend 80% of their iteration cycle writing repetitive glue code: handling missing values, encoding categories, checking multicollinearity, tuning hyperparameters, debugging tracebacks, and building packaging scripts.
+Traditional machine learning model development requires hours of manual glue work: exploratory profiling, missing-value imputation, categorical encoding, multicollinearity pruning, algorithm selection, hyperparameter tuning, debugging syntax crashes, and writing standalone prediction wrappers.
 
-**AutoML compresses this 4–8 hour manual workflow into an automated, self-healing loop in < 180 seconds:**
+**AutoML compresses this 4–8 hour manual workflow into an automated, deterministic pipeline in < 180 seconds:**
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -77,15 +77,15 @@ Data scientists and ML engineers spend 80% of their iteration cycle writing repe
 
 ## ✨ Key Features
 
-- 🧠 **Autonomous Multi-Agent Architecture:** Three specialized OpenAI agents (**Planner**, **Coder**, **Debugger & Optimizer**) divide cognitive load and prevent hallucinations.
-- 🔄 **Self-Correction & Hyperparameter Loop:** When execution encounters a runtime crash (`exit_code != 0`) or fails to meet the target validation score ($Score < Threshold$), the Debugger Agent inspects `stderr` and iteratively repairs or tunes the code up to 5 attempts.
-- 🛡️ **Zero Data Leakage & Statistical Rigor:** Strict 80/20 train/test splits. Imputers, encoders (`handle_unknown='ignore'`), and scalers fit strictly on $X_{train}$. Dynamic **Variance Inflation Factor (VIF > 5.0)** calculation prunes multicollinear features for linear models.
+- 🧠 **Autonomous Multi-Agent Architecture:** Three specialized cognitive agents (**Planner**, **Coder**, **Debugger & Optimizer**) divide cognitive load and eliminate hallucinations.
+- 🔄 **Autonomous Self-Correction Loop:** When execution encounters a runtime crash (`exit_code != 0`) or falls short of the target validation score ($Score < Threshold$), the Debugger Agent analyzes tracebacks and iteratively repairs or tunes the code up to 5 attempts.
+- 🛡️ **Zero Data Leakage & Statistical Rigor:** All imputers, encoders (`handle_unknown='ignore'`), and scalers fit strictly on $X_{train}$. Dynamic **Variance Inflation Factor (VIF > 5.0)** calculation automatically prunes multicollinear features for linear estimators without heavy external dependencies.
 - 🔒 **Dual-Mode Secure Sandboxing:**
-  - **Cloud:** Ephemeral ZeroGPU runners on Hugging Face Spaces via native Gradio Blocks API.
+  - **Cloud:** Ephemeral ZeroGPU runners on Hugging Face Spaces via native Gradio Blocks API with token authentication.
   - **Local:** Air-gapped (`network_mode="none"`), hard-quota (`mem_limit="1g"`), 60-second bounded Docker containers.
-- 🔌 **Model Context Protocol (MCP) Native:** Integrates `FastMCP` servers exposing data profiling and sandboxed script execution as discoverable JSON-RPC tools for LLM agents or low-code workflow engines like **n8n**.
+- 🔌 **Model Context Protocol (MCP) Native:** Integrates `FastMCP` servers exposing data profiling and sandboxed script execution as standardized JSON-RPC tools for LLM agents or low-code workflow engines like **n8n**.
 - 📦 **1-Click Inference Deliverables:** Compiles a production-ready `.zip` bundle containing `model.pkl`, `preprocessor.pkl`, standalone `inference.py`, pinned `requirements.txt`, diagnostic visualizations, and an executive PDF report.
-- 🔐 **Enterprise Auth & Tier Gating:** Asymmetric **Clerk RS256 JWKS** token authentication with 1-hour key caching and enforcement of free-tier execution quotas.
+- 🔐 **Enterprise Auth & Quota Guardrails:** Asymmetric **Clerk RS256 JWKS** token authentication with 1-hour in-memory key caching and tier-gated execution limits.
 - 📊 **Multi-Interface Support:** Includes a cyber-futuristic Next.js 14 web app, Streamlit interactive dashboards, and standalone REST/MCP APIs.
 
 ---
@@ -94,7 +94,7 @@ Data scientists and ML engineers spend 80% of their iteration cycle writing repe
 
 ```mermaid
 graph TD
-    subgraph Client_Tier ["Client Tier (Vercel)"]
+    subgraph Client_Tier ["Client Tier (Vercel / Browser)"]
         UI["Next.js 14 Dashboard<br/>(React / Lucide / Tailwind)"]
         AuthClient["Clerk Auth Provider<br/>(JWT Token Management)"]
         LocalParser["Client-side CSV Parser<br/>(FileReader API)"]
@@ -107,13 +107,13 @@ graph TD
         DB[(PostgreSQL / SQLite<br/>Run Metadata & Log Store)]
     end
 
-    subgraph Cognitive_Tier ["Cognitive Agentic Subsystem (OpenAI GPT-5.6 / GPT-4o)"]
+    subgraph Cognitive_Tier ["Cognitive Agentic Subsystem (OpenAI Models)"]
         PlannerAgent["Planner Agent<br/>(Statistical Modeling Blueprint)"]
         CoderAgent["Coder Agent<br/>(Self-Contained Python Synthesizer)"]
         DebugAgent["Debugger & Optimizer Agent<br/>(Traceback Analysis & Hyperparameter Search)"]
     end
 
-    subgraph Execution_Tier ["Execution Sandbox Tier (Hugging Face Spaces / Docker)"]
+    subgraph Execution_Tier ["Execution Sandbox Tier (Private ZeroGPU / Docker)"]
         GradioServer["Gradio 5+ API Gateway<br/>(ZeroGPU Acceleration)"]
         SandboxEnv["Isolated Ephemeral Sandbox<br/>(TempDir / Network-Disabled / 60s Timeout)"]
         SubprocessRunner["Subprocess Execution Runner<br/>(sys.executable & Resource Boundary)"]
@@ -175,62 +175,26 @@ Rather than relying on a single monolithic prompt, AutoML divides cognition acro
 ```
 
 ### 1. Planner Agent (`planner.py`)
-Acts as a Lead Data Science Architect. Ingests raw schema metadata (row count, feature data types, null distributions, categorical cardinalities) and formulates an **8-Stage Statistical Execution Plan**:
-1. Imputation strategies (mean/median for numerical, mode for categorical).
+Acts as the Lead Data Science Architect. Ingests raw schema metadata (row count, feature data types, null distributions, categorical cardinalities) and formulates an **8-Stage Statistical Execution Plan**:
+1. Missing value imputation strategies (mean/median for numerical, mode for categorical).
 2. Scaling (`StandardScaler`) and encoding (`OneHotEncoder(handle_unknown='ignore')`).
 3. Multicollinearity suppression: VIF loop for linear models.
-4. Leakage-free 80/20 train/test data splitting.
+4. Leakage-free 80/20 train/test data partitioning.
 5. Model instantiation and training matching the requested task.
 6. Metric evaluation (Accuracy, F1-Score for classification; $R^2$, MAE, RMSE for regression).
 7. Diagnostic plot generation (`confusion_matrix.png`, `residuals.png`, `feature_importances.png`).
-8. Serializing artifacts (`model.pkl`, `preprocessor.pkl`, `inference.py`, `requirements.txt`).
+8. Artifact serialization (`model.pkl`, `preprocessor.pkl`, `inference.py`, `requirements.txt`).
 
 ### 2. Coder Agent (`coder.py`)
 Translates the Markdown plan into an immediately executable, self-contained Python script:
-- Embeds the dataset in-memory as a Base64-encoded string (`base64.b64decode()`), removing any external disk dependency during remote sandbox execution.
-- Emits real-time telemetry via structured standard output parsing (`[METRIC] Accuracy = 0.9450`).
+- Embeds the dataset in-memory as a Base64-encoded string (`base64.b64decode()`), eliminating external disk dependencies during remote sandbox execution.
+- Emits real-time telemetry via structured stdout parsing (`[METRIC] Accuracy = 0.9450`).
 - Generates clean artifact files and production prediction code.
 
 ### 3. Debugger & Optimization Agent (`debugger.py`)
 Activates when the sandbox returns a non-zero exit code or fails to achieve `min_threshold`:
 - **Syntax/Runtime Crashes:** Ingests Python traceback (`stderr`), isolates missing imports or shape mismatches, and rewrites the pipeline.
 - **Metric Optimization:** When score is below threshold, dynamically injects hyperparameter exploration (`RandomizedSearchCV`), introduces interaction terms, or tunes regularization penalties.
-
----
-
-## 📦 Production Inference Bundle
-
-Every successful run outputs an in-memory ZIP package (`automl_bundle_{run_id}.zip`):
-
-```
-automl_bundle_{run_id}.zip
-├── model.pkl                  # Serialized trained Scikit-Learn / XGBoost estimator
-├── preprocessor.pkl           # Fitted ColumnTransformer (scaling, encoding, imputation)
-├── inference.py               # Standalone production prediction service
-├── requirements.txt           # Explicit Python dependencies with pinned versions
-├── README.md                  # Model card, validation metrics & quickstart guide
-├── confusion_matrix.png       # Classification diagnostic heatmap (or residuals.png)
-├── feature_importances.png    # Top predictive feature weight visualization
-└── training_report.pdf        # Formal PDF executive summary report
-```
-
-### Zero-Friction Inference Contract (`inference.py`):
-```python
-import joblib
-import pandas as pd
-
-def predict(input_data: pd.DataFrame):
-    """
-    Production-ready prediction function.
-    Loads fitted preprocessor and model from local directory.
-    """
-    preprocessor = joblib.load("preprocessor.pkl")
-    model = joblib.load("model.pkl")
-    
-    transformed_data = preprocessor.transform(input_data)
-    predictions = model.predict(transformed_data)
-    return predictions
-```
 
 ---
 
@@ -241,8 +205,8 @@ def predict(input_data: pd.DataFrame):
 | **Location** | `sandbox/app.py` | `mcp_servers/sandbox_server.py` |
 | **Hardware** | ZeroGPU (`@spaces.GPU`) / CPU | Local Host CPU / GPU |
 | **Protocol** | Native Gradio Blocks Client (`/profile`, `/execute`) | FastMCP JSON-RPC / Subprocess |
-| **Security** | Isolated `tempfile.TemporaryDirectory()` | Air-Gapped (`network_mode="none"`), Read-only volumes |
-| **Resource Cap**| HF Space Quotas & Timeouts | Hard 1GB RAM (`mem_limit="1g"`), 60s Subprocess Ceiling |
+| **Security** | Private Space + Token Auth, Ephemeral `tempfile` | Air-Gapped (`network_mode="none"`), Read-only volumes |
+| **Resource Cap**| Space Quotas & Timeouts | Hard 1GB RAM (`mem_limit="1g"`), 60s Subprocess Ceiling |
 | **Artifact Delivery** | Base64-encoded In-Memory ZIP Buffer | Direct Host Volume Mount (`/workspace/host_dir`) |
 
 ---
@@ -280,36 +244,72 @@ graph LR
 - `validate_pipeline(model_path, preprocessor_path)`: Validates that `joblib.load()` succeeds and that `predict()` operates without serialization degradation.
 
 ### 3. n8n Low-Code Orchestration (`n8n/automl_workflow.json`):
-Provides an automated workflow where Webhook triggers pass CSV data through the Profiler and Sandbox MCP tools, executing full pipeline cycles visually.
+Provides a visual workflow where Webhook triggers pass CSV data through the Profiler and Sandbox MCP tools, executing full pipeline cycles visually.
 
 ---
 
-## 🛡️ Engineering Checks & Balances
+## 📦 Production Inference Deliverables
+
+Every successful run outputs an in-memory ZIP package (`automl_bundle_{run_id}.zip`):
+
+```
+automl_bundle_{run_id}.zip
+├── model.pkl                  # Serialized trained Scikit-Learn / XGBoost estimator
+├── preprocessor.pkl           # Fitted ColumnTransformer (scaling, encoding, imputation)
+├── inference.py               # Standalone production prediction service
+├── requirements.txt           # Explicit Python dependencies with pinned versions
+├── README.md                  # Model card, validation metrics & quickstart guide
+├── confusion_matrix.png       # Classification diagnostic heatmap (or residuals.png)
+├── feature_importances.png    # Top predictive feature weight visualization
+└── training_report.pdf        # Formal PDF executive summary report
+```
+
+### Zero-Friction Prediction Interface (`inference.py`):
+```python
+import joblib
+import pandas as pd
+
+def predict(input_data: pd.DataFrame):
+    """
+    Production-ready prediction function.
+    Loads fitted preprocessor and model from local directory.
+    """
+    preprocessor = joblib.load("preprocessor.pkl")
+    model = joblib.load("model.pkl")
+    
+    transformed_data = preprocessor.transform(input_data)
+    predictions = model.predict(transformed_data)
+    return predictions
+```
+
+---
+
+## 🛡️ Security, Privacy & Sandboxing Guardrails
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                   CHECKS & BALANCES FRAMEWORK                                    │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-   DATA SCIENCE INTEGRITY               SANDBOX SECURITY                     SYSTEM RELIABILITY
-  ────────────────────────             ──────────────────                   ────────────────────
-  • Strict 80/20 Train/Test Split      • Subprocess / Container Isolation   • Schema Type-Safety Monkey Patch
-  • Pipeline Fit on Train Only         • Air-Gapped Network (Docker)        • RS256 JWKS Key Caching
-  • Dynamic VIF Multicollinearity      • 60s Subprocess Execution Ceiling   • Universal UTF-8 Stream Normalization
-  • Robust Missing Value Imputation    • Ephemeral TempDir Auto-Scrubbing   • Dynamic Schema Self-Migration
+   DATA PRIVACY & CREDENTIALS           SANDBOX ISOLATION                    DATA SCIENCE RIGOR
+  ─────────────────────────────        ──────────────────                   ────────────────────
+  • Zero hardcoded keys or URLs        • Subprocess / Container Isolation   • Strict 80/20 Train/Test Split
+  • Private Space + Fine-Grained Token • Air-Gapped Network (Docker)        • Pipeline Fit on Train Only
+  • Local .env ignored in Git          • 60s Subprocess Execution Ceiling   • Dynamic VIF Multicollinearity
+  • Databases (*.db) Git-ignored       • Ephemeral TempDir Auto-Scrubbing   • Robust Missing Value Imputation
 ```
 
-1. **Multicollinearity Suppression via Native VIF:**
+1. **Zero Hardcoded Secrets or Infrastructure Identifiers:**  
+   No API keys, database connection strings, personal usernames, ngrok endpoints, or public space links are stored in the codebase. All connection strings are strictly injected via runtime environment variables.
+2. **Private Sandbox Space Protection:**  
+   The remote execution engine runs in a **Private** Hugging Face Space. Requests are authenticated via a Fine-grained `HF_TOKEN` with read-only access to prevent unauthorized arbitrary code execution or GPU quota drainage.
+3. **Air-Gapped Docker Execution:**  
+   When running locally, Docker executes with `network_mode="none"` and `mem_limit="1g"`. Untrusted generated code has zero outbound network access and cannot exfiltrate data.
+4. **Multicollinearity Suppression via Native VIF:**  
    $$\text{VIF}_i = \frac{1}{1 - R_i^2}$$
-   Features exhibiting $\text{VIF} > 5.0$ are dynamically pruned prior to fitting linear models, eliminating numerical instability without heavy external dependencies like `statsmodels`.
-2. **Gradio Client Schema Type Fix:**  
-   Resolves the Pydantic boolean introspection bug (`TypeError: argument of type 'bool' is not iterable`) with an in-memory monkey patch on `gradio_client.utils.get_type`.
-3. **ZeroGPU AST Detection Compliance:**  
-   Constructs the sandbox as a native `gr.Blocks()` application with `@spaces.GPU` directly declared on event functions, satisfying Hugging Face's static AST verification.
-4. **Universal UTF-8 Reconfiguration:**  
-   Forces `sys.stdout` and `sys.stderr` to `utf-8` on process boot, preventing Windows `cp1252` encoding crashes on emoji telemetry.
-5. **Zero-Downtime Dynamic DB Migration:**  
-   Inspects existing SQLite/PostgreSQL schemas on boot and executes non-destructive patches (`ALTER TABLE runs ADD COLUMN IF NOT EXISTS plan TEXT;`).
+   Features exhibiting $\text{VIF} > 5.0$ are dynamically pruned prior to fitting linear models, eliminating numerical instability without heavy external dependencies.
+5. **Universal UTF-8 Stream Normalization:**  
+   Forces `sys.stdout` and `sys.stderr` to `utf-8` on process boot, preventing terminal encoding crashes on Windows and Linux alike.
 
 ---
 
@@ -365,65 +365,66 @@ AutoML/
 
 ---
 
-## 🛠️ Getting Started
+## 🛠️ Quickstart & Installation
 
 ### Prerequisites
 
 - **Python 3.10+**
 - **Node.js 18+** & **npm**
 - **Docker** (optional, for local air-gapped sandboxing)
-- **OpenAI API Key** (access to `gpt-4o` or `gpt-5.6-luna`)
-- **Clerk Account** (for user authentication & JWT verification)
+- **OpenAI API Key** (access to `gpt-4o` or compatible models)
+- **Clerk Account** (for authentication and JWT token management)
 
-### Environment Variables
+### Environment Variables Setup
 
-Create a `.env` file in the project root (or inside `backend/` and `frontend/`):
+Create a `.env` file in the project root (or separate `.env` files inside `backend/` and `frontend/`).  
+Use the template below, replacing the placeholder values with your own credentials:
 
 ```bash
 # ── Backend Configuration ───────────────────────────────────────────────────
-OPENAI_API_KEY="sk-proj-your-openai-api-key"
-CLERK_SECRET_KEY="sk_test_your_clerk_secret_key"
+OPENAI_API_KEY="<your-openai-api-key>"
+CLERK_SECRET_KEY="<your-clerk-secret-key>"
 DATABASE_URL="sqlite:///./automl_local.db"  # Or postgresql://<user>:<password>@<host>:5432/<dbname>
-HF_SANDBOX_URL="your-hf-username/automl-sandbox"  # Your private HF Space or local sandbox
-HF_TOKEN="hf_your_access_token_here"  # Required if your Hugging Face Space is set to Private
+HF_SANDBOX_URL="<your-hf-username>/<your-space-name>"
+HF_TOKEN="<your-fine-grained-read-token>"  # Required for Private Hugging Face Spaces
 
 # ── Frontend Configuration ──────────────────────────────────────────────────
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_your_clerk_publishable_key"
-CLERK_SECRET_KEY="sk_test_your_clerk_secret_key"
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="<your-clerk-publishable-key>"
+CLERK_SECRET_KEY="<your-clerk-secret-key>"
 NEXT_PUBLIC_API_URL="http://localhost:8000"
+NEXT_PUBLIC_STRIPE_PAYMENT_LINK="<your-stripe-checkout-url>"  # Optional
 ```
 
 > [!WARNING]
-> **Security Best Practice:**
-> - **Never commit real credentials** to public repositories. Always keep production secrets in your local, untracked `.env` file (ensure `.env` is listed in your `.gitignore`).
-> - **Hugging Face Sandbox Security:** Because the sandbox runs arbitrary Python code, set your Hugging Face Space visibility to **Private** and authenticate requests via `HF_TOKEN` to prevent unauthorized execution or GPU quota exhaustion.
+> **Security Guardrail:**  
+> Never commit `.env` files or hardcode real credentials in git. The repository's [`.gitignore`](file:///c:/Users/KIIT/Desktop/AutoML/.gitignore) is pre-configured to exclude all `.env`, `.env.*`, and database (`*.db`, `*.sqlite`) files from tracking.
 
 ---
 
-### 1. Backend Orchestrator
+### 1. Backend API Gateway
 
 ```bash
-# 1. Navigate to backend
+# 1. Navigate to backend directory
 cd backend
 
-# 2. Create virtual environment & activate
+# 2. Create and activate virtual environment
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Start FastAPI server
+# 4. Start the FastAPI orchestrator
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-The API Swagger documentation will be available at `http://localhost:8000/docs`.
+Interactive OpenAPI/Swagger documentation is available at `http://localhost:8000/docs`.
 
 ---
 
-### 2. Next.js 14 Frontend
+### 2. Next.js 14 Dashboard
 
 ```bash
-# 1. Navigate to frontend
+# 1. Navigate to frontend directory
 cd frontend
 
 # 2. Install dependencies
@@ -432,14 +433,17 @@ npm install
 # 3. Launch development server
 npm run dev
 ```
-Open `http://localhost:3000` in your browser to access the AutoML Operator Terminal.
+Open `http://localhost:3000` in your browser to access the AutoML Operator Dashboard.
 
 ---
 
-### 3. Execution Sandbox
+### 3. Execution Sandbox Options
 
-#### Option A: Hugging Face Spaces ZeroGPU (Default Cloud)
-Deploy the `sandbox/` directory directly to a Hugging Face Space configured with **Gradio SDK 5.9+** and **ZeroGPU** enabled. Update `HF_SANDBOX_URL` in your `.env`.
+#### Option A: Hugging Face Spaces (Default Cloud ZeroGPU)
+1. Create a new Space on Hugging Face configured with **Gradio SDK 5.9+** and **ZeroGPU**.
+2. Deploy the files from [`sandbox/`](file:///c:/Users/KIIT/Desktop/AutoML/sandbox/) (`app.py`, `requirements.txt`).
+3. Set Space visibility to **Private** in Space Settings.
+4. Create a **Fine-grained Access Token** with **Read-Only** permissions scoped to that Space, and supply it via `HF_TOKEN` in your backend `.env`.
 
 #### Option B: Local Air-Gapped Docker Sandbox
 ```bash
@@ -455,14 +459,14 @@ python -m mcp_servers.sandbox_server
 ## 📡 API Reference
 
 ### `POST /api/upload`
-Uploads a dataset file and initializes a pending training run.
+Uploads a dataset and initializes a pending training run record.
 - **Headers:** `Authorization: Bearer <clerk_jwt>`
 - **Form Data:**
-  - `file`: CSV or Excel file binary
-  - `target_variable`: Name of target column (e.g., `purchased`, `price`)
+  - `file`: CSV or Excel binary file
+  - `target_variable`: Target column name to predict
   - `task_type`: `classification` | `regression`
-  - `selected_model`: `Random Forest` | `XGBoost` | `Logistic Regression` | `LightGBM` | `CatBoost`
-  - `min_threshold`: Float metric target (e.g., `0.90`)
+  - `selected_model`: Algorithm selection (e.g., `Random Forest`, `XGBoost`)
+  - `min_threshold`: Minimum metric requirement (e.g., `0.90`)
 - **Response:**
   ```json
   {
@@ -474,12 +478,12 @@ Uploads a dataset file and initializes a pending training run.
   ```
 
 ### `POST /api/runs/{run_id}/trigger`
-Triggers the multi-agent execution pipeline asynchronously in a background worker thread.
+Triggers the multi-agent execution pipeline asynchronously in a background worker task.
 - **Headers:** `Authorization: Bearer <clerk_jwt>`
 - **Response:** `{"message": "AutoML pipeline execution triggered in the background."}`
 
 ### `GET /api/runs/{run_id}/status`
-Polls live execution logs, agent phase transitions, generated statistical plan, metrics, and bundle download URL.
+Polls live telemetry logs, agent phase transitions, statistical plan, evaluation metrics, and artifact bundle URL.
 - **Headers:** `Authorization: Bearer <clerk_jwt>`
 - **Response:**
   ```json
@@ -505,17 +509,7 @@ Lists all historical model training runs for the authenticated user.
 
 ---
 
-## 🧪 Testing
-
-Run the full end-to-end automated test suite (including MCP profiler inspection, intentional failure injection, and self-correction loop validation):
-
-```bash
-pytest tests/test_core_pipeline.py -v
-```
-
----
-
-## 🗺️ Supported Algorithms
+## 🗺️ Supported Machine Learning Algorithms
 
 ### Classification
 - Logistic Regression
@@ -537,6 +531,18 @@ pytest tests/test_core_pipeline.py -v
 - CatBoost (`CatBoostRegressor`)
 - Support Vector Regressor (`SVR`)
 - K-Nearest Neighbors Regressor (`KNeighborsRegressor`)
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+Run the automated test suite to verify the MCP data profiler and sandbox execution loops:
+
+```bash
+python -m pytest tests/test_core_pipeline.py -v
+```
+
+All test runs execute inside isolated temporary directories with automated artifact cleanup.
 
 ---
 
