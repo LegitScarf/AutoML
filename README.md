@@ -383,14 +383,20 @@ Create a `.env` file in the project root (or inside `backend/` and `frontend/`):
 # ── Backend Configuration ───────────────────────────────────────────────────
 OPENAI_API_KEY="sk-proj-your-openai-api-key"
 CLERK_SECRET_KEY="sk_test_your_clerk_secret_key"
-DATABASE_URL="sqlite:///./automl_local.db"  # Or postgresql://user:pass@host:5432/automl
-HF_SANDBOX_URL="LegitScarf/automl-sandbox"  # Your HF Space URL or local sandbox
+DATABASE_URL="sqlite:///./automl_local.db"  # Or postgresql://<user>:<password>@<host>:5432/<dbname>
+HF_SANDBOX_URL="your-hf-username/automl-sandbox"  # Your private HF Space or local sandbox
+HF_TOKEN="hf_your_access_token_here"  # Required if your Hugging Face Space is set to Private
 
 # ── Frontend Configuration ──────────────────────────────────────────────────
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_your_clerk_publishable_key"
 CLERK_SECRET_KEY="sk_test_your_clerk_secret_key"
 NEXT_PUBLIC_API_URL="http://localhost:8000"
 ```
+
+> [!WARNING]
+> **Security Best Practice:**
+> - **Never commit real credentials** to public repositories. Always keep production secrets in your local, untracked `.env` file (ensure `.env` is listed in your `.gitignore`).
+> - **Hugging Face Sandbox Security:** Because the sandbox runs arbitrary Python code, set your Hugging Face Space visibility to **Private** and authenticate requests via `HF_TOKEN` to prevent unauthorized execution or GPU quota exhaustion.
 
 ---
 
@@ -534,7 +540,9 @@ pytest tests/test_core_pipeline.py -v
 
 ---
 
+## 📜 License
 
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
 ---
 

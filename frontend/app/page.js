@@ -834,7 +834,7 @@ export default function Home() {
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <a 
-                href="https://buy.stripe.com/test_eVaeYm2zL6gW34s3cc"
+                href={process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || "https://buy.stripe.com/test_eVaeYm2zL6gW34s3cc"}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

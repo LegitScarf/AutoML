@@ -23,7 +23,7 @@ col1, col2 = st.columns(2)
 with col1:
     dataset_path = st.text_input(
         "Dataset Path (Local to host)",
-        value="c:/Users/KIIT/Desktop/AutoML/sample_dataset.csv",
+        value="./sample_dataset.csv",
         help="The local file path that the Sandbox container/MCP servers can read."
     )
 

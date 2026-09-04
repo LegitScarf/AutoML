@@ -1,3 +1,5 @@
+import os
+import tempfile
 import streamlit as st
 import requests
 import time
@@ -856,20 +858,20 @@ st.markdown("""
 
 st.markdown('<div class="cfg-card">', unsafe_allow_html=True)
 
-webhook_url = "https://armored-body-case.ngrok-free.dev/webhook/trigger-automl"
+webhook_url = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/trigger-automl")
 
 col1, col2 = st.columns(2)
 with col1:
     uploaded_file = st.file_uploader("Upload CSV Dataset", type=["csv"])
     if uploaded_file is not None:
-        dataset_path = "c:/Users/KIIT/Desktop/AutoML/uploaded_dataset.csv"
+        dataset_path = os.path.join(tempfile.gettempdir(), "uploaded_dataset.csv")
         with open(dataset_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         st.caption(f"Saved uploaded file to: `{dataset_path}`")
     else:
         dataset_path = st.text_input(
             "Dataset Path (Local to host)",
-            value="c:/Users/KIIT/Desktop/AutoML/sample_dataset.csv",
+            value="./sample_dataset.csv",
             help="The local file path that the Sandbox container/MCP servers can read.",
         )
 with col2:

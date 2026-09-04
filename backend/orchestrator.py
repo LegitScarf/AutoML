@@ -1,6 +1,17 @@
 import os
 import json
 import time
+import sys
+
+# Force UTF-8 encoding for standard streams to prevent Windows encoding crashes on unicode logs
+try:
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout.reconfigure(encoding='utf-8')
+    if sys.stderr.encoding != 'utf-8':
+        sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+
 
 # Monkey patch gradio_client schema parsing bug (TypeError: argument of type 'bool' is not iterable)
 try:
@@ -23,7 +34,9 @@ from .agents.coder import ask_coder_agent
 from .agents.debugger import ask_debugger_agent
 
 # Environment parameters
-HF_SANDBOX_URL = os.getenv("HF_SANDBOX_URL", "LegitScarf/automl-sandbox")
+HF_SANDBOX_URL = os.getenv("HF_SANDBOX_URL")
+raw_token = os.getenv("HF_TOKEN", "").strip()
+HF_TOKEN = raw_token if raw_token and not raw_token.startswith("hf_your_") else None
 
 async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, db: Session):
     """
@@ -48,6 +61,12 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
     try:
         run.status = "profiling"
         db.commit()
+        if not HF_SANDBOX_URL:
+            raise ValueError(
+                "HF_SANDBOX_URL is not configured. Please set HF_SANDBOX_URL in your environment variables "
+                "or .env file (e.g. 'your-hf-username/automl-sandbox')."
+            )
+
         add_log(f"Starting pipeline run {run_id} for dataset {filename}...")
         add_log(f"Connecting to Hugging Face Sandbox at: {HF_SANDBOX_URL}")
         
@@ -63,7 +82,8 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
             else:
                 csv_content_str = file_content.decode("utf-8", errors="ignore")
                 
-            client = Client(HF_SANDBOX_URL)
+            client_kwargs = {"hf_token": HF_TOKEN} if HF_TOKEN else {}
+            client = Client(HF_SANDBOX_URL, **client_kwargs)
             profile_res = client.predict(csv_content_str, api_name="/profile")
             
             if isinstance(profile_res, str):
@@ -145,6 +165,9 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
             add_log(f"[TRY {attempts}/{max_attempts}] Submitting execution task to Hugging Face ZeroGPU Sandbox...", "system")
             
             try:
+                if client is None:
+                    add_log("Re-establishing connection to Hugging Face Sandbox...", "system")
+                    client = Client(HF_SANDBOX_URL, **client_kwargs)
                 exec_res = client.predict(current_code, 60, api_name="/execute")
                 
                 if isinstance(exec_res, str):
@@ -201,6 +224,7 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
                     current_code = ask_debugger_agent(current_code, error_context, plan)
                     
             except Exception as loop_err:
+                client = None  # Force fresh connection on next attempt
                 add_log(f"Sandbox communication error on attempt {attempts}: {str(loop_err)}", "err")
                 if attempts >= max_attempts:
                     raise loop_err

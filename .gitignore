@@ -34,6 +34,18 @@ model.pkl
 automl_bundle.zip
 sample_dataset.csv
 
+# Databases & local state
+*.db
+*.sqlite
+*.sqlite3
+automl_local.db
+test_blackbox.db
+
+# Generated model artifacts & bundles
+static/bundles/
+static/bundles/*.zip
+*.zip
+
 # Environment and secrets
 .env
 .env.*
