@@ -384,14 +384,14 @@ Use the template below, replacing the placeholder values with your own credentia
 # ── Backend Configuration ───────────────────────────────────────────────────
 OPENAI_API_KEY="<your-openai-api-key>"
 CLERK_SECRET_KEY="<your-clerk-secret-key>"
-DATABASE_URL="sqlite:///./automl_local.db"  # Or postgresql://<user>:<password>@<host>:5432/<dbname>
+DATABASE_URL="<your-database-url>"  # e.g. sqlite:///./local.db or postgresql://<user>:<password>@<host>:5432/<dbname>
 HF_SANDBOX_URL="<your-hf-username>/<your-space-name>"
 HF_TOKEN="<your-fine-grained-read-token>"  # Required for Private Hugging Face Spaces
 
 # ── Frontend Configuration ──────────────────────────────────────────────────
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="<your-clerk-publishable-key>"
 CLERK_SECRET_KEY="<your-clerk-secret-key>"
-NEXT_PUBLIC_API_URL="http://localhost:8000"
+NEXT_PUBLIC_API_URL="<your-backend-api-url>"  # e.g. http://localhost:8000 for local dev
 NEXT_PUBLIC_STRIPE_PAYMENT_LINK="<your-stripe-checkout-url>"  # Optional
 ```
 
