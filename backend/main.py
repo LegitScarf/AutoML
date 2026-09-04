@@ -149,13 +149,12 @@ def trigger_pipeline(
         except Exception:
             pass
 
-    # Launch background job
+    # Launch background job in dedicated worker threadpool
     background_tasks.add_task(
         run_automl_pipeline,
         run_id=run.id,
         file_content=file_content,
-        filename=run.dataset_name,
-        db=db
+        filename=run.dataset_name
     )
     
     # Clean up temp file from disk now that bytes are loaded into the worker task

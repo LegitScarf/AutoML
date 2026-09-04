@@ -38,29 +38,32 @@ HF_SANDBOX_URL = os.getenv("HF_SANDBOX_URL")
 raw_token = os.getenv("HF_TOKEN", "").strip()
 HF_TOKEN = raw_token if raw_token and not raw_token.startswith("hf_your_") else None
 
-async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, db: Session):
+def run_automl_pipeline(run_id: str, file_content: bytes, filename: str):
     """
-    Asynchronous orchestrator task running the AutoML pipeline steps:
+    Synchronous orchestrator worker running in a threadpool:
     Profile -> Plan -> Generate Code -> Execute Sandbox -> Validate -> Complete.
-    Features a self-correction repair/optimization loop.
+    Features a self-correction repair/optimization loop with dedicated DB session lifecycle.
     """
     from gradio_client import Client
-    
-    run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id).first()
-    if not run:
-        return
-        
-    def add_log(text, type_tag="info"):
-        timestamp = time.strftime("%H:%M:%S")
-        log_entry = f"[{timestamp}] [{type_tag.upper()}] {text}"
-        current_logs = list(run.logs) if run.logs else []
-        current_logs.append(log_entry)
-        run.logs = current_logs
-        db.commit()
- 
+    from .db.database import SessionLocal
+
+    db = SessionLocal()
     try:
-        run.status = "profiling"
-        db.commit()
+        run = db.query(AutoMLRun).filter(AutoMLRun.id == run_id).first()
+        if not run:
+            return
+            
+        def add_log(text, type_tag="info"):
+            timestamp = time.strftime("%H:%M:%S")
+            log_entry = f"[{timestamp}] [{type_tag.upper()}] {text}"
+            current_logs = list(run.logs) if run.logs else []
+            current_logs.append(log_entry)
+            run.logs = current_logs
+            db.commit()
+     
+        try:
+            run.status = "profiling"
+            db.commit()
         if not HF_SANDBOX_URL:
             raise ValueError(
                 "HF_SANDBOX_URL is not configured. Please set HF_SANDBOX_URL in your environment variables "
@@ -230,13 +233,13 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
                     raise loop_err
                 error_context = f"Communication / Subprocess Error: {str(loop_err)}"
                 current_code = ask_debugger_agent(current_code, error_context, plan)
-                await asyncio.sleep(2)
+                time.sleep(2)
                 
         # 5. Verification Step
         run.status = "verifying"
         db.commit()
         add_log("Validating pipeline loading and execution metrics...", "system")
-        await asyncio.sleep(1.0)
+        time.sleep(1.0)
         
         # Decode and save custom ZIP bundle returned from Hugging Face sandbox
         zip_base64 = last_exec_res.get("zip_base64", "")
@@ -259,6 +262,9 @@ async def run_automl_pipeline(run_id: str, file_content: bytes, filename: str, d
         add_log("AutoML pipeline finished successfully! Model bundle created.", "ok")
         
     except Exception as e:
-        run.status = "failed"
-        db.commit()
-        add_log(f"Pipeline crashed with execution error: {str(e)}", "err")
+        if 'run' in locals() and run is not None:
+            run.status = "failed"
+            db.commit()
+            add_log(f"Pipeline crashed with execution error: {str(e)}", "err")
+    finally:
+        db.close()

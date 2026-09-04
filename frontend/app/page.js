@@ -256,14 +256,48 @@ export default function Home() {
 
       // 3. Telemetry status polling
       let lastLogLength = 0;
+      let consecutiveErrors = 0;
+      const maxConsecutiveErrors = 10;
+
       const pollInterval = setInterval(async () => {
         try {
-          const statusRes = await fetch(`${backendUrl}/api/runs/${run_id}/status`, {
+          // Dynamically obtain active Clerk token for each status poll
+          let currentToken = await getToken();
+
+          let statusRes = await fetch(`${backendUrl}/api/runs/${run_id}/status`, {
             headers: {
-              'Authorization': `Bearer ${token}`
+              'Authorization': `Bearer ${currentToken}`
             }
           });
-          if (!statusRes.ok) return;
+
+          // Proactive 401 recovery: force Clerk to bypass cache and mint a fresh JWT
+          if (statusRes.status === 401) {
+            try {
+              currentToken = await getToken({ skipCache: true });
+              if (currentToken) {
+                statusRes = await fetch(`${backendUrl}/api/runs/${run_id}/status`, {
+                  headers: {
+                    'Authorization': `Bearer ${currentToken}`
+                  }
+                });
+              }
+            } catch (refreshErr) {
+              console.error('Token refresh error:', refreshErr);
+            }
+          }
+
+          if (!statusRes.ok) {
+            consecutiveErrors++;
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+              clearInterval(pollInterval);
+              setStatus('error');
+              appendRawLog(`[ERR] Telemetry polling terminated after repeated failures (Status: ${statusRes.status}).`);
+            }
+            return;
+          }
+
+          // Reset error counter on successful response
+          consecutiveErrors = 0;
 
           const data = await statusRes.json();
 
@@ -295,6 +329,12 @@ export default function Home() {
           }
         } catch (pollErr) {
           console.error('Polling error:', pollErr);
+          consecutiveErrors++;
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            clearInterval(pollInterval);
+            setStatus('error');
+            appendRawLog(`[ERR] Lost connection to AutoML telemetry server: ${pollErr.message}`);
+          }
         }
       }, 1500);
 

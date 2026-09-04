@@ -75,12 +75,13 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Security(securi
         raise HTTPException(status_code=401, detail="JWKS matching key signature not found.")
         
     try:
-        # Verify and decode the token
+        # Verify and decode the token with clock skew leeway
         payload = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
-            options={"verify_aud": False}
+            options={"verify_aud": False},
+            leeway=60
         )
         
         user_id = payload.get("sub")
