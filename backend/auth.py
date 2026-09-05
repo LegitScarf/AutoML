@@ -88,8 +88,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Security(securi
         if not user_id:
             raise HTTPException(status_code=401, detail="Token payload missing subject ('sub') claim.")
             
-        # Extract custom metadata tier synchronized from Stripe (defaulting to 'free')
-        tier = payload.get("public_metadata", {}).get("tier", "free")
+        # Extract custom metadata tier synchronized from Stripe (defaulting to 'premium' when billing is disabled)
+        ENABLE_TRIAL_LIMITS = os.getenv("ENABLE_TRIAL_LIMITS", "false").lower() == "true"
+        tier = payload.get("public_metadata", {}).get("tier", "premium" if not ENABLE_TRIAL_LIMITS else "free")
         
         return {"user_id": user_id, "tier": tier}
         

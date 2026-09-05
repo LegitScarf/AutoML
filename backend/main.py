@@ -85,8 +85,9 @@ async def upload_dataset(
     current_user_id = current_user["user_id"]
     user_tier = current_user["tier"]
     
-    # Enforce 2-run free trial limit
-    if user_tier != "premium":
+    # Enforce 2-run free trial limit only if feature flag is active (Default: False -> Unlimited free runs)
+    ENABLE_TRIAL_LIMITS = os.getenv("ENABLE_TRIAL_LIMITS", "false").lower() == "true"
+    if ENABLE_TRIAL_LIMITS and user_tier != "premium":
         run_count = db.query(AutoMLRun).filter(AutoMLRun.user_id == current_user_id).count()
         if run_count >= 2:
             raise HTTPException(status_code=403, detail="TRIAL_LIMIT_EXCEEDED")
